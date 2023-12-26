@@ -23,7 +23,7 @@ type pathExistsFunc func(string) (bool, error)
 // removeChapter will remove chapter at given path.
 // Doesn't matter if it's a directory or a file.
 func (c *Client) removeChapter(chapterPath string) error {
-	c.options.Log("Removing " + chapterPath)
+	c.logger.Log("Removing " + chapterPath)
 
 	isDir, err := afero.IsDir(c.options.FS, chapterPath)
 	if err != nil {
@@ -67,13 +67,13 @@ func (c *Client) downloadMangaImage(ctx context.Context, manga Manga, URL string
 
 // downloadCover will download cover if it doesn't exist
 func (c *Client) downloadCover(ctx context.Context, manga Manga, out io.Writer) error {
-	c.options.Log("Downloading cover")
+	c.logger.Log("Downloading cover")
 
 	coverURL, ok, err := c.getCoverURL(ctx, manga)
 	if err != nil {
 		return err
 	}
-	c.options.Log(coverURL)
+	c.logger.Log(coverURL)
 
 	if !ok {
 		return errors.New("cover url not found")
@@ -84,13 +84,13 @@ func (c *Client) downloadCover(ctx context.Context, manga Manga, out io.Writer) 
 
 // downloadBanner will download banner if it doesn't exist
 func (c *Client) downloadBanner(ctx context.Context, manga Manga, out io.Writer) error {
-	c.options.Log("Downloading banner")
+	c.logger.Log("Downloading banner")
 
 	bannerURL, ok, err := c.getBannerURL(ctx, manga)
 	if err != nil {
 		return err
 	}
-	c.options.Log(bannerURL)
+	c.logger.Log(bannerURL)
 
 	if !ok {
 		return errors.New("cover url not found")
@@ -178,7 +178,7 @@ func (c *Client) getSeriesJSON(ctx context.Context, manga Manga) (SeriesJSON, er
 }
 
 func (c *Client) writeSeriesJSON(ctx context.Context, manga Manga, out io.Writer) error {
-	c.options.Log(fmt.Sprintf("Writing %s", filenameSeriesJSON))
+	c.logger.Log(fmt.Sprintf("Writing %s", filenameSeriesJSON))
 
 	seriesJSON, err := c.getSeriesJSON(ctx, manga)
 	if err != nil {
@@ -323,17 +323,19 @@ func (c *Client) getComicInfoXML(
 	return chapterWithAnilist.ComicInfoXML(), nil
 }
 
-func (c *Client) readChapter(ctx context.Context, path string, chapter Chapter, incognito bool) error {
-	c.options.Log("Opening chapter with the default app")
+func (c *Client) ReadChapter(ctx context.Context, path string, chapter Chapter, options ReadOptions) error {
+	c.logger.Log("Opening chapter with the default app")
 
 	err := open.Run(path)
 	if err != nil {
 		return err
 	}
 
-	if c.Anilist().IsAuthorized() && !incognito {
+	if options.SaveAnilist && c.Anilist().IsAuthorized() {
 		return c.markChapterAsRead(ctx, chapter)
 	}
+
+	// TODO: save to local history
 
 	return nil
 }
@@ -369,7 +371,7 @@ func (c *Client) savePDF(
 	pages []PageWithImage,
 	out io.Writer,
 ) error {
-	c.options.Log(fmt.Sprintf("Saving %d pages as PDF", len(pages)))
+	c.logger.Log(fmt.Sprintf("Saving %d pages as PDF", len(pages)))
 
 	// convert to readers
 	var images = make([]io.Reader, len(pages))
@@ -387,7 +389,7 @@ func (c *Client) saveCBZ(
 	comicInfoXml ComicInfoXML,
 	options ComicInfoXMLOptions,
 ) error {
-	c.options.Log(fmt.Sprintf("Saving %d pages as CBZ", len(pages)))
+	c.logger.Log(fmt.Sprintf("Saving %d pages as CBZ", len(pages)))
 
 	zipWriter := zip.NewWriter(out)
 	defer zipWriter.Close()
