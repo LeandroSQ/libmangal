@@ -12,7 +12,7 @@ type MangaInfo struct {
 	// This is a separate field from the Title due to Title could
 	// be on any language, but Anilist only supports searching
 	// for english, native and romaji titles.
-	AnilistSearch string `json:"anilistSearch"`
+	AnilistSearch string `json:"anilist_search"`
 
 	// URL leading to manga page web page.
 	URL string `json:"url"`
