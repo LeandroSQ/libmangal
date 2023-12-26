@@ -140,7 +140,7 @@ func (c ComicInfoXML) wrapper(options ComicInfoXMLOptions) comicInfoXMLWrapper {
 			c.Notes,
 			"",
 			fmt.Sprintf("Downloaded with libmangal/%s", Version),
-			"https://github.com/mangalorg/libmangal",
+			"https://github.com/luevano/libmangal",
 		}, "\n"),
 		Manga:           "YesAndRightToLeft",
 		StoryArc:        c.StoryArc,

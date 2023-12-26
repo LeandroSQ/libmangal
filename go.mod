@@ -1,4 +1,4 @@
-module github.com/mangalorg/libmangal
+module github.com/luevano/libmangal
 
 go 1.21
 
