@@ -1,5 +1,5 @@
 <div align="center">
-  <img width="150px" alt="logo depicting a cartoon octopus" src="https://github.com/mangalorg/libmangal/assets/62389790/456e7065-0be1-4898-bb22-f9b0f787c2ba">
+  <img width="150px" alt="logo depicting a cartoon octopus" src="octopus.png">
   <h1>libmangal</h1>
 </div>
 
@@ -57,3 +57,7 @@ go get github.com/luevano/libmangal@latest
 
 - [mangal](https://github.com/luevano/mangal) - Advanced CLI manga downloader. Lua scrapers, export formats, anilist integration, fancy TUI and more.
 - [mangalcli](https://github.com/mangalorg/mangalcli) - Advanced Manga Downloader with Anilist integration, metadata generation and Lua extensions.
+
+## Credits
+
+Octopus logo: [Octopus icons created by Freepik - Flaticon](https://www.flaticon.com/free-icons/octopus "octopus icons")
