@@ -217,6 +217,7 @@ func (c comicInfoXMLWrapper) marshal() ([]byte, error) {
 
 // SeriesJSON is similar to ComicInfoXML but designed for
 // the series as a whole rather than a single chapter
+// https://github.com/mylar3/mylar3/wiki/series.json-schema-%28version-1.0.1%29
 type SeriesJSON struct {
 	Type                 string `json:"type"`
 	Name                 string `json:"name"`

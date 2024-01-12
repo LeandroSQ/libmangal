@@ -3,6 +3,7 @@ package libmangal
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 type AnilistManga struct {
@@ -127,15 +128,29 @@ func (m *MangaWithAnilist) SeriesJSON() SeriesJSON {
 		status = "Unknown"
 	}
 
+	// Format should be (according to mylar3 series.json schema):
+	// November 2011 - July 2016
+	// June 2021 - Present (when there is no EndDate, meaning it's still publishing)
+	var pubEndDate string
+	if m.Anilist.EndDate != (Date{}) {
+		pubEndDate = fmt.Sprintf(
+			"%s %d",
+			time.Month(m.Anilist.EndDate.Month).String(),
+			m.Anilist.EndDate.Year)
+	} else {
+		pubEndDate = "Present"
+	}
+
 	publicationRun := fmt.Sprintf(
-		"%d %d - %d %d",
-		m.Anilist.StartDate.Month, m.Anilist.StartDate.Year,
-		m.Anilist.EndDate.Month, m.Anilist.EndDate.Year,
+		"%s %d - %s",
+		time.Month(m.Anilist.StartDate.Month).String(),
+		m.Anilist.StartDate.Year,
+		pubEndDate,
 	)
 
 	return SeriesJSON{
 		Type:                 "comicSeries",
-		Name:                 m.Info().Title,
+		Name:                 m.Anilist.String(),
 		DescriptionFormatted: m.Anilist.Description,
 		DescriptionText:      m.Anilist.Description,
 		Status:               status,
@@ -207,7 +222,8 @@ func (c ChapterOfMangaWithAnilist) ComicInfoXML() ComicInfoXML {
 	// TODO: fill missing
 	return ComicInfoXML{
 		Title:           c.Info().Title,
-		Series:          c.Volume().Manga().Info().Title,
+		// Series:          c.Volume().Manga().Info().Title,
+		Series:          c.MangaWithAnilist.Anilist.String(),
 		Number:          c.Info().Number,
 		Web:             c.Info().URL,
 		Genres:          c.MangaWithAnilist.Anilist.Genres,
