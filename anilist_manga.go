@@ -205,9 +205,9 @@ func (c ChapterOfMangaWithAnilist) ComicInfoXML() ComicInfoXML {
 		}
 	}
 
-	// If ScanlationGroups is set, use it instead of Anilist Translators list
-	if c.Info().ScanlationGroups != nil {
-		translators = c.Info().ScanlationGroups
+	// If ScanlationGroup is set, use it as the only "translators" instead of Anilist Translators list
+	if c.Info().ScanlationGroup != "" {
+		translators = []string{c.Info().ScanlationGroup}
 	}
 
 	tags := make([]string, 0)
