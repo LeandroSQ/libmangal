@@ -100,6 +100,17 @@ func (a AnilistManga) String() string {
 	return a.Title.Native
 }
 
+func (a AnilistManga) Publisher() string {
+	var publisher string
+	for _, edge := range a.Staff.Edges {
+		if strings.Contains(edge.Role, "role") {
+			publisher = edge.Node.Name.Full
+			break
+		}
+	}
+	return publisher
+}
+
 type MangaWithAnilist struct {
 	Manga
 	Anilist AnilistManga
@@ -116,14 +127,6 @@ func (m *MangaWithAnilist) SeriesJSON() SeriesJSON {
 		status = "Unknown"
 	}
 
-	var publisher string
-	for _, edge := range m.Anilist.Staff.Edges {
-		if strings.Contains(edge.Role, "role") {
-			publisher = edge.Node.Name.Full
-			break
-		}
-	}
-
 	publicationRun := fmt.Sprintf(
 		"%d %d - %d %d",
 		m.Anilist.StartDate.Month, m.Anilist.StartDate.Year,
@@ -138,7 +141,7 @@ func (m *MangaWithAnilist) SeriesJSON() SeriesJSON {
 		Status:               status,
 		Year:                 m.Anilist.StartDate.Year,
 		ComicImage:           m.Anilist.CoverImage.ExtraLarge,
-		Publisher:            publisher,
+		Publisher:            m.Anilist.Publisher(),
 		ComicID:              m.Anilist.ID,
 		BookType:             "Print",
 		TotalIssues:          m.Anilist.Chapters,
@@ -214,7 +217,7 @@ func (c ChapterOfMangaWithAnilist) ComicInfoXML() ComicInfoXML {
 		Year:            date.Year,
 		Month:           date.Month,
 		Day:             date.Day,
-		Publisher:       "",
+		Publisher:       c.MangaWithAnilist.Anilist.Publisher(),
 		LanguageISO:     "",
 		StoryArc:        "",
 		StoryArcNumber:  0,
