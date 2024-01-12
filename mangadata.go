@@ -82,7 +82,7 @@ type ChapterInfo struct {
 	Date Date `json:"date"`
 
 	// ScanlationGroup is the group that did the scan/translation.
-	ScanlationGroup string `json:"scanlation_groups"`
+	ScanlationGroup string `json:"scanlation_group"`
 }
 
 // Chapter is what Volume consists of. Each chapter is about 24–40 pages.
