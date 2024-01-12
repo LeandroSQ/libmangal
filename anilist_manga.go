@@ -152,19 +152,25 @@ type ChapterOfMangaWithAnilist struct {
 }
 
 func (c ChapterOfMangaWithAnilist) ComicInfoXML() ComicInfoXML {
-	var characters = make([]string, len(c.MangaWithAnilist.Anilist.Characters.Nodes))
+	characters := make([]string, len(c.MangaWithAnilist.Anilist.Characters.Nodes))
 	for i, node := range c.MangaWithAnilist.Anilist.Characters.Nodes {
 		characters[i] = node.Name.Full
 	}
 
-	date := c.MangaWithAnilist.Anilist.StartDate
-
 	var (
+		date Date
 		writers,
 		pencillers,
 		letterers,
 		translators []string
 	)
+
+	// If no chapter date is supplied, use Anilist.StartDate
+	if c.Info().Date != (Date{}) {
+		date = c.Info().Date
+	} else {
+		date = c.MangaWithAnilist.Anilist.StartDate
+	}
 
 	for _, edge := range c.MangaWithAnilist.Anilist.Staff.Edges {
 		role := edge.Role
@@ -181,7 +187,12 @@ func (c ChapterOfMangaWithAnilist) ComicInfoXML() ComicInfoXML {
 		}
 	}
 
-	var tags = make([]string, 0)
+	// If ScanlationGroups is set, use it instead of Anilist Translators list
+	if c.Info().ScanlationGroups != nil {
+		translators = c.Info().ScanlationGroups
+	}
+
+	tags := make([]string, 0)
 	for _, tag := range c.MangaWithAnilist.Anilist.Tags {
 		if tag.Rank < 60 {
 			continue

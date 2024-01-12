@@ -3,7 +3,7 @@ package libmangal
 import "fmt"
 
 type MangaInfo struct {
-	// Title of the manga
+	// Title of the manga.
 	Title string `json:"title"`
 
 	// AnilistSearch is the title of the manga
@@ -66,7 +66,7 @@ type Volume interface {
 }
 
 type ChapterInfo struct {
-	// Title is the title of chapter
+	// Title is the title of chapter.
 	Title string `json:"title"`
 
 	// URL is the url leading to chapter web page.
@@ -77,6 +77,12 @@ type ChapterInfo struct {
 	// Float type used in case of chapters that has numbers
 	// like this: 10.8 or 103.1.
 	Number float32 `json:"number"`
+
+	// Date is the chapter publication date.
+	Date Date `json:"date"`
+
+	// ScanlationGroups are the groups that did the scans/translations.
+	ScanlationGroups []string `json:"scanlation_groups"`
 }
 
 // Chapter is what Volume consists of. Each chapter is about 24–40 pages.
