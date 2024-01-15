@@ -20,9 +20,14 @@ type anilistRequestBody struct {
 }
 
 type Date struct {
+	fmt.Stringer
 	Year  int `json:"year"`
 	Month int `json:"month"`
 	Day   int `json:"day"`
+}
+
+func (d Date) String() string {
+	return fmt.Sprintf("%d-%02d-%02d", d.Year, d.Month, d.Day)
 }
 
 type Anilist struct {
