@@ -8,14 +8,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/pdfcpu/pdfcpu/pkg/api"
-	"github.com/skratchdot/open-golang/open"
-	"github.com/spf13/afero"
 	"io"
 	"math"
 	"net/http"
 	"path/filepath"
 	"time"
+
+	"github.com/pdfcpu/pdfcpu/pkg/api"
+	"github.com/skratchdot/open-golang/open"
+	"github.com/spf13/afero"
 )
 
 type pathExistsFunc func(string) (bool, error)
@@ -374,7 +375,7 @@ func (c *Client) savePDF(
 	c.logger.Log(fmt.Sprintf("Saving %d pages as PDF", len(pages)))
 
 	// convert to readers
-	var images = make([]io.Reader, len(pages))
+	images := make([]io.Reader, len(pages))
 	for i, page := range pages {
 		images[i] = bytes.NewReader(page.GetImage())
 	}
@@ -396,10 +397,10 @@ func (c *Client) saveCBZ(
 
 	for i, page := range pages {
 		writer, err := zipWriter.CreateHeader(&zip.FileHeader{
-			Name:   fmt.Sprintf("%04d%s", i+1, page.GetExtension()),
-			Method: zip.Store,
+			Name:     fmt.Sprintf("%04d%s", i+1, page.GetExtension()),
+			Method:   zip.Store,
+			Modified: time.Now(),
 		})
-
 		if err != nil {
 			return err
 		}
@@ -418,8 +419,9 @@ func (c *Client) saveCBZ(
 	}
 
 	writer, err := zipWriter.CreateHeader(&zip.FileHeader{
-		Name:   filenameComicInfoXML,
-		Method: zip.Store,
+		Name:     filenameComicInfoXML,
+		Method:   zip.Store,
+		Modified: time.Now(),
 	})
 	if err != nil {
 		return err
@@ -437,6 +439,8 @@ func (c *Client) saveTAR(
 	pages []PageWithImage,
 	out io.Writer,
 ) error {
+	c.logger.Log(fmt.Sprintf("Saving %d pages as TAR", len(pages)))
+
 	tarWriter := tar.NewWriter(out)
 	defer tarWriter.Close()
 
@@ -465,6 +469,8 @@ func (c *Client) saveTARGZ(
 	pages []PageWithImage,
 	out io.Writer,
 ) error {
+	c.logger.Log(fmt.Sprintf("Bundling TAR into GZIP"))
+
 	gzipWriter := gzip.NewWriter(out)
 	defer gzipWriter.Close()
 
@@ -475,15 +481,17 @@ func (c *Client) saveZIP(
 	pages []PageWithImage,
 	out io.Writer,
 ) error {
+	c.logger.Log(fmt.Sprintf("Saving %d pages as ZIP", len(pages)))
+
 	zipWriter := zip.NewWriter(out)
 	defer zipWriter.Close()
 
 	for i, page := range pages {
 		writer, err := zipWriter.CreateHeader(&zip.FileHeader{
-			Name:   fmt.Sprintf("%04d%s", i+1, page.GetExtension()),
-			Method: zip.Store,
+			Name:     fmt.Sprintf("%04d%s", i+1, page.GetExtension()),
+			Method:   zip.Store,
+			Modified: time.Now(),
 		})
-
 		if err != nil {
 			return err
 		}

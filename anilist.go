@@ -20,7 +20,6 @@ type anilistRequestBody struct {
 }
 
 type Date struct {
-	fmt.Stringer
 	Year  int `json:"year"`
 	Month int `json:"month"`
 	Day   int `json:"day"`
@@ -100,7 +99,6 @@ func (a *Anilist) getByID(
 	data, err := sendRequest[struct {
 		Media *AnilistManga `json:"media"`
 	}](ctx, a, body)
-
 	if err != nil {
 		return AnilistManga{}, false, err
 	}
@@ -148,7 +146,7 @@ func (a *Anilist) SearchMangas(
 		return nil, err
 	}
 
-	var ids = make([]int, len(mangas))
+	ids := make([]int, len(mangas))
 	for i, manga := range mangas {
 		err := a.cacheSetId(manga.ID, manga)
 		if err != nil {
@@ -182,7 +180,6 @@ func (a *Anilist) searchMangas(
 			Media []AnilistManga `json:"media"`
 		} `json:"page"`
 	}](ctx, a, body)
-
 	if err != nil {
 		return nil, err
 	}
@@ -393,7 +390,6 @@ func (a *Anilist) SetMangaProgress(ctx context.Context, mangaID, chapterNumber i
 			},
 		},
 	)
-
 	if err != nil {
 		return AnilistError{err}
 	}
