@@ -221,15 +221,15 @@ func (c comicInfoXMLWrapper) marshal() ([]byte, error) {
 type SeriesJSON struct {
 	Type                 string `json:"type"`
 	Name                 string `json:"name"`
-	DescriptionFormatted string `json:"descriptionFormatted"`
-	DescriptionText      string `json:"descriptionText"`
+	DescriptionFormatted string `json:"description_formatted"`
+	DescriptionText      string `json:"description_text"`
 	Status               string `json:"status"`
 	Year                 int    `json:"year"`
-	ComicImage           string `json:"ComicImage"`
+	ComicImage           string `json:"comicImage"`
 	Publisher            string `json:"publisher"`
-	ComicID              int    `json:"comicId"`
+	ComicID              int    `json:"comicid"`
 	BookType             string `json:"booktype"`
-	TotalIssues          int    `json:"totalIssues"`
+	TotalIssues          int    `json:"total_issues"`
 	PublicationRun       string `json:"publication_run"`
 }
 
