@@ -218,6 +218,7 @@ func (c comicInfoXMLWrapper) marshal() ([]byte, error) {
 // SeriesJSON is similar to ComicInfoXML but designed for
 // the series as a whole rather than a single chapter
 // https://github.com/mylar3/mylar3/wiki/series.json-schema-%28version-1.0.1%29
+// note that ComicImage field is wrong in the schema, it should be ComicImage, not comicImage
 type SeriesJSON struct {
 	Type                 string `json:"type"`
 	Name                 string `json:"name"`
@@ -225,7 +226,7 @@ type SeriesJSON struct {
 	DescriptionText      string `json:"description_text"`
 	Status               string `json:"status"`
 	Year                 int    `json:"year"`
-	ComicImage           string `json:"comicImage"`
+	ComicImage           string `json:"ComicImage"`
 	Publisher            string `json:"publisher"`
 	ComicID              int    `json:"comicid"`
 	BookType             string `json:"booktype"`
