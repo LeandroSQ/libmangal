@@ -450,7 +450,7 @@ func (c *Client) saveTAR(
 		err := tarWriter.WriteHeader(&tar.Header{
 			Name:    fmt.Sprintf("%04d%s", i+1, page.GetExtension()),
 			Size:    int64(len(image)),
-			Mode:    0644,
+			Mode:    modeFile,
 			ModTime: time.Now(),
 		})
 		if err != nil {
@@ -599,13 +599,13 @@ func (c *Client) downloadChapterWithMetadata(
 			return "", err
 		}
 
-		file, err := c.options.FS.Create(path)
-		if err != nil {
-			return "", err
-		}
-		defer file.Close()
-
 		if !exists {
+			file, err := c.options.FS.Create(path)
+			if err != nil {
+				return "", err
+			}
+			defer file.Close()
+
 			err = c.downloadBanner(ctx, chapter.Volume().Manga(), file)
 			if err != nil && options.Strict {
 				return "", MetadataError{err}
