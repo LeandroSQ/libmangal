@@ -28,7 +28,7 @@ func NewClient(
 	}
 
 	logger := NewLogger()
-	logger.SetPrefix(providerInfo.Name)
+	logger.SetPrefix(providerInfo.ID)
 	provider.SetLogger(logger)
 
 	return &Client{

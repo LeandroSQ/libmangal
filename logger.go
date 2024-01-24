@@ -1,6 +1,7 @@
 package libmangal
 
 import (
+	"fmt"
 	"io"
 	"log"
 )
@@ -8,6 +9,7 @@ import (
 type Logger struct {
 	onLog  func(string)
 	logger *log.Logger
+	prefix string
 }
 
 func NewLogger() *Logger {
@@ -16,11 +18,17 @@ func NewLogger() *Logger {
 	return &Logger{
 		onLog:  func(string) {},
 		logger: logger,
+		prefix: "",
 	}
 }
 
 func (l *Logger) SetPrefix(prefix string) {
 	l.logger.SetPrefix(prefix)
+	l.prefix = fmt.Sprintf("%s: ", prefix)
+}
+
+func (l *Logger) GetPrefix() string {
+	return l.logger.Prefix()
 }
 
 func (l *Logger) Writer() io.Writer {
@@ -37,7 +45,7 @@ func (l *Logger) SetOnLog(hook func(string)) {
 
 func (l *Logger) Log(message string) {
 	if l.onLog != nil {
-		l.onLog(message)
+		l.onLog(fmt.Sprintf("%s%s", l.prefix, message))
 	}
 
 	l.logger.Println(message)
