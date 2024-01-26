@@ -75,8 +75,9 @@ func (c *Client) downloadCover(ctx context.Context, manga Manga, out io.Writer) 
 		return err
 	}
 	if !ok {
-		c.logger.Log("Cover url not found")
-		return nil
+		msg := "Cover url not found"
+		c.logger.Log(msg)
+		return errors.New(msg)
 	}
 
 	c.logger.Log(fmt.Sprintf("Cover url: %s", coverURL))
@@ -93,8 +94,9 @@ func (c *Client) downloadBanner(ctx context.Context, manga Manga, out io.Writer)
 		return err
 	}
 	if !ok {
-		c.logger.Log("Banner url not found")
-		return nil
+		msg := "Banner url not found"
+		c.logger.Log(msg)
+		return errors.New(msg)
 	}
 
 	c.logger.Log(fmt.Sprintf("Banner url: %s", bannerURL))
