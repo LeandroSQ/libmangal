@@ -26,13 +26,16 @@ func DefaultReadOptions() ReadOptions {
 
 // DownloadOptions configures Chapter downloading
 type DownloadOptions struct {
-	// Format in which a chapter must be downloaded
+	// Format in which a chapter must be downloaded.
 	Format Format
 
-	// Directory is the directory where manga will be downloaded to
+	// Directory is the directory where manga will be downloaded to.
 	Directory string
 
-	// CreateMangaDir will create manga directory
+	// CreateProviderDir will create provider directory.
+	CreateProviderDir bool
+
+	// CreateMangaDir will create manga directory.
 	CreateMangaDir bool
 
 	// CreateVolumeDir will create volume directory.
@@ -43,10 +46,10 @@ type DownloadOptions struct {
 
 	// Strict means that that if during metadata creation
 	// error occurs downloader will return it immediately and chapter
-	// won't be downloaded
+	// won't be downloaded.
 	Strict bool
 
-	// SkipIfExists will skip downloading chapter if its already downloaded (exists at path)
+	// SkipIfExists will skip downloading chapter if its already downloaded (exists at path).
 	//
 	// However, metadata will still be created if needed.
 	SkipIfExists bool
@@ -57,11 +60,11 @@ type DownloadOptions struct {
 	// DownloadMangaBanner or not. Will not download banner again if its already downloaded.
 	DownloadMangaBanner bool
 
-	// WriteSeriesJson write metadata series.json file in the manga directory
+	// WriteSeriesJson write metadata series.json file in the manga directory.
 	WriteSeriesJson bool
 
 	// WriteComicInfoXml write metadata ComicInfo.xml file to the .cbz archive when
-	// downloading with FormatCBZ
+	// downloading with FormatCBZ.
 	WriteComicInfoXml bool
 
 	// ReadAfter will open the chapter for reading after it was downloaded.
@@ -70,7 +73,7 @@ type DownloadOptions struct {
 	// E.g. `xdg-open` for Linux.
 	//
 	// It will also sync read chapter with your Anilist profile
-	// if it's configured. See also ReadIncognito
+	// if it's configured. See also ReadIncognito.
 	//
 	// Note, that underlying filesystem must be mapped with OsFs
 	// in order for os to open it.
@@ -78,12 +81,12 @@ type DownloadOptions struct {
 
 	ReadOptions ReadOptions
 
-	// ComicInfoXMLOptions options to use for ComicInfo.xml when WriteComicInfoXml is true
+	// ComicInfoXMLOptions options to use for ComicInfo.xml when WriteComicInfoXml is true.
 	ComicInfoXMLOptions ComicInfoXMLOptions
 
 	// ImageTransformer is applied for each image for the chapter.
 	//
-	// E.g. grayscale effect
+	// E.g. grayscale effect.
 	ImageTransformer func([]byte) ([]byte, error)
 }
 
@@ -92,6 +95,7 @@ func DefaultDownloadOptions() DownloadOptions {
 	return DownloadOptions{
 		Format:              FormatPDF,
 		Directory:           ".",
+		CreateProviderDir:   false,
 		CreateMangaDir:      true,
 		CreateVolumeDir:     false,
 		Strict:              true,
@@ -162,6 +166,11 @@ type ClientOptions struct {
 	// that the client will use.
 	FS afero.Fs
 
+	// ProviderNameTemplate defines how provider filenames will look when downloaded.
+	ProviderNameTemplate func(
+		provider ProviderInfo,
+	) string
+
 	// ChapterNameTemplate defines how mangas filenames will look when downloaded.
 	MangaNameTemplate func(
 		provider string,
@@ -192,16 +201,19 @@ func DefaultClientOptions() ClientOptions {
 	return ClientOptions{
 		HTTPClient: &http.Client{},
 		FS:         afero.NewOsFs(),
-		ChapterNameTemplate: func(_ string, chapter Chapter) string {
-			info := chapter.Info()
-			number := fmt.Sprintf("%06.1f", info.Number)
-			return sanitizePath(fmt.Sprintf("[%s] %s", number, info.Title))
+		ProviderNameTemplate: func(provider ProviderInfo) string {
+			return sanitizePath(provider.Name)
 		},
 		MangaNameTemplate: func(_ string, manga Manga) string {
 			return sanitizePath(manga.Info().Title)
 		},
 		VolumeNameTemplate: func(_ string, volume Volume) string {
 			return sanitizePath(fmt.Sprintf("Vol. %d", volume.Info().Number))
+		},
+		ChapterNameTemplate: func(_ string, chapter Chapter) string {
+			info := chapter.Info()
+			number := fmt.Sprintf("%06.1f", info.Number)
+			return sanitizePath(fmt.Sprintf("[%s] %s", number, info.Title))
 		},
 		Anilist: &anilist,
 	}

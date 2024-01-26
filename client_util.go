@@ -522,6 +522,10 @@ func (c *Client) downloadChapterWithMetadata(
 		bannerDir     = directory
 	)
 
+	if options.CreateProviderDir {
+		directory = filepath.Join(directory, c.ComputeProviderFilename(c.provider.Info()))
+	}
+
 	if options.CreateMangaDir {
 		directory = filepath.Join(directory, c.ComputeMangaFilename(chapter.Volume().Manga()))
 		seriesJSONDir = directory

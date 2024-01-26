@@ -187,6 +187,10 @@ func (c *Client) DownloadPage(ctx context.Context, page Page) (PageWithImage, er
 	}, nil
 }
 
+func (c *Client) ComputeProviderFilename(provider ProviderInfo) string {
+	return c.options.ProviderNameTemplate(provider)
+}
+
 func (c *Client) ComputeMangaFilename(manga Manga) string {
 	return c.options.MangaNameTemplate(c.String(), manga)
 }
