@@ -159,7 +159,7 @@ func (c *Client) getBannerURL(ctx context.Context, manga Manga) (string, bool, e
 func (c *Client) getSeriesJSON(ctx context.Context, manga Manga) (SeriesJSON, error) {
 	withSeriesJSON, ok := manga.(MangaWithSeriesJSON)
 	if ok {
-		seriesJSON, err := withSeriesJSON.SeriesJSON()
+		seriesJSON, ok, err := withSeriesJSON.SeriesJSON()
 		if err != nil {
 			return SeriesJSON{}, err
 		}

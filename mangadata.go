@@ -39,7 +39,7 @@ type MangaWithSeriesJSON interface {
 	// SeriesJSON will be used to write series.json file.
 	// If ok is false then mangal will try to search on Anilist for the
 	// relevant manga.
-	SeriesJSON() (SeriesJSON, error)
+	SeriesJSON() (SeriesJSON, bool, error)
 }
 
 type VolumeInfo struct {
