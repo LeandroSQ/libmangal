@@ -36,7 +36,7 @@ type Manga interface {
 	// This is used to fetch metadata when downloading chapters.
 	//
 	// Also Useful for templates.
-	AnilistManga() (AnilistManga, bool)
+	AnilistManga() (AnilistManga, error)
 	// SetAnilistManga will provide an AnilistManga for internal use.
 	//
 	// This is controlled on the client, not by libmangal.

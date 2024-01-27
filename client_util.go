@@ -178,8 +178,8 @@ func (c *Client) getSeriesJSON(ctx context.Context, manga Manga) (SeriesJSON, er
 }
 
 func (c *Client) getMangaAnilist(ctx context.Context, manga Manga) (AnilistManga, bool, error) {
-	mangaAnilistManga, ok := manga.AnilistManga()
-	if ok {
+	mangaAnilistManga, err := manga.AnilistManga()
+	if err == nil {
 		return mangaAnilistManga, true, nil
 	}
 
