@@ -274,6 +274,22 @@ func sendRequest[Data any](
 	return body.Data, nil
 }
 
+// Convenience method to chec for manga title also.
+func (a *Anilist) FindClosestMangaByManga(
+	ctx context.Context,
+	manga Manga,
+) (AnilistManga, bool, error) {
+	var title string
+	info := manga.Info()
+	if info.AnilistSearch != "" {
+		title = info.AnilistSearch
+	} else {
+		title = info.Title
+	}
+
+	return a.FindClosestManga(ctx, title)
+}
+
 func (a *Anilist) FindClosestManga(
 	ctx context.Context,
 	title string,
@@ -395,51 +411,4 @@ func (a *Anilist) SetMangaProgress(ctx context.Context, mangaID, chapterNumber i
 	}
 
 	return nil
-}
-
-func (a *Anilist) MakeMangaWithAnilist(
-	ctx context.Context,
-	manga Manga,
-) (MangaWithAnilist, bool, error) {
-	var title string
-	info := manga.Info()
-
-	if info.AnilistSearch != "" {
-		title = info.AnilistSearch
-	} else {
-		title = info.Title
-	}
-
-	anilistManga, ok, err := a.FindClosestManga(ctx, title)
-	if err != nil {
-		return MangaWithAnilist{}, false, AnilistError{err}
-	}
-
-	if !ok {
-		return MangaWithAnilist{}, false, nil
-	}
-
-	return MangaWithAnilist{
-		Manga:   manga,
-		Anilist: anilistManga,
-	}, true, nil
-}
-
-func (a *Anilist) MakeChapterWithAnilist(
-	ctx context.Context,
-	chapter Chapter,
-) (ChapterOfMangaWithAnilist, bool, error) {
-	mangaWithAnilist, ok, err := a.MakeMangaWithAnilist(ctx, chapter.Volume().Manga())
-	if err != nil {
-		return ChapterOfMangaWithAnilist{}, false, AnilistError{err}
-	}
-
-	if !ok {
-		return ChapterOfMangaWithAnilist{}, false, nil
-	}
-
-	return ChapterOfMangaWithAnilist{
-		Chapter:          chapter,
-		MangaWithAnilist: mangaWithAnilist,
-	}, true, nil
 }

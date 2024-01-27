@@ -112,14 +112,9 @@ func (a AnilistManga) Publisher() string {
 	return publisher
 }
 
-type MangaWithAnilist struct {
-	Manga
-	Anilist AnilistManga
-}
-
-func (m *MangaWithAnilist) SeriesJSON() SeriesJSON {
+func AnilistSeriesJSON(anilist AnilistManga) SeriesJSON {
 	var status string
-	switch m.Anilist.Status {
+	switch anilist.Status {
 	case "FINISHED":
 		status = "Ended"
 	case "RELEASING":
@@ -132,46 +127,41 @@ func (m *MangaWithAnilist) SeriesJSON() SeriesJSON {
 	// November 2011 - July 2016
 	// June 2021 - Present (when there is no EndDate, meaning it's still publishing)
 	var pubEndDate string
-	if m.Anilist.EndDate != (Date{}) {
+	if anilist.EndDate != (Date{}) {
 		pubEndDate = fmt.Sprintf(
 			"%s %d",
-			time.Month(m.Anilist.EndDate.Month).String(),
-			m.Anilist.EndDate.Year)
+			time.Month(anilist.EndDate.Month).String(),
+			anilist.EndDate.Year)
 	} else {
 		pubEndDate = "Present"
 	}
 
 	publicationRun := fmt.Sprintf(
 		"%s %d - %s",
-		time.Month(m.Anilist.StartDate.Month).String(),
-		m.Anilist.StartDate.Year,
+		time.Month(anilist.StartDate.Month).String(),
+		anilist.StartDate.Year,
 		pubEndDate,
 	)
 
 	return SeriesJSON{
 		Type:                 "comicSeries",
-		Name:                 m.Anilist.String(),
-		DescriptionFormatted: m.Anilist.Description,
-		DescriptionText:      m.Anilist.Description,
+		Name:                 anilist.String(),
+		DescriptionFormatted: anilist.Description,
+		DescriptionText:      anilist.Description,
 		Status:               status,
-		Year:                 m.Anilist.StartDate.Year,
-		ComicImage:           m.Anilist.CoverImage.ExtraLarge,
-		Publisher:            m.Anilist.Publisher(),
-		ComicID:              m.Anilist.ID,
+		Year:                 anilist.StartDate.Year,
+		ComicImage:           anilist.CoverImage.ExtraLarge,
+		Publisher:            anilist.Publisher(),
+		ComicID:              anilist.ID,
 		BookType:             "Print",
-		TotalIssues:          m.Anilist.Chapters,
+		TotalIssues:          anilist.Chapters,
 		PublicationRun:       publicationRun,
 	}
 }
 
-type ChapterOfMangaWithAnilist struct {
-	Chapter
-	MangaWithAnilist MangaWithAnilist
-}
-
-func (c ChapterOfMangaWithAnilist) ComicInfoXML() ComicInfoXML {
-	characters := make([]string, len(c.MangaWithAnilist.Anilist.Characters.Nodes))
-	for i, node := range c.MangaWithAnilist.Anilist.Characters.Nodes {
+func AnilistComicInfoXML(chapter Chapter, anilist AnilistManga) ComicInfoXML {
+	characters := make([]string, len(anilist.Characters.Nodes))
+	for i, node := range anilist.Characters.Nodes {
 		characters[i] = node.Name.Full
 	}
 
@@ -184,13 +174,13 @@ func (c ChapterOfMangaWithAnilist) ComicInfoXML() ComicInfoXML {
 	)
 
 	// If no chapter date is supplied, use Anilist.StartDate
-	if c.Info().Date != (Date{}) {
-		date = c.Info().Date
+	if chapter.Info().Date != (Date{}) {
+		date = chapter.Info().Date
 	} else {
-		date = c.MangaWithAnilist.Anilist.StartDate
+		date = anilist.StartDate
 	}
 
-	for _, edge := range c.MangaWithAnilist.Anilist.Staff.Edges {
+	for _, edge := range anilist.Staff.Edges {
 		role := edge.Role
 		name := edge.Node.Name.Full
 		switch {
@@ -206,12 +196,12 @@ func (c ChapterOfMangaWithAnilist) ComicInfoXML() ComicInfoXML {
 	}
 
 	// If ScanlationGroup is set, use it as the only "translators" instead of Anilist Translators list
-	if c.Info().ScanlationGroup != "" {
-		translators = []string{c.Info().ScanlationGroup}
+	if chapter.Info().ScanlationGroup != "" {
+		translators = []string{chapter.Info().ScanlationGroup}
 	}
 
 	tags := make([]string, 0)
-	for _, tag := range c.MangaWithAnilist.Anilist.Tags {
+	for _, tag := range anilist.Tags {
 		if tag.Rank < 60 {
 			continue
 		}
@@ -221,25 +211,25 @@ func (c ChapterOfMangaWithAnilist) ComicInfoXML() ComicInfoXML {
 
 	// TODO: fill missing
 	return ComicInfoXML{
-		Title:           c.Info().Title,
+		Title: chapter.Info().Title,
 		// Series:          c.Volume().Manga().Info().Title,
-		Series:          c.MangaWithAnilist.Anilist.String(),
-		Number:          c.Info().Number,
-		Web:             c.Info().URL,
-		Genres:          c.MangaWithAnilist.Anilist.Genres,
-		Summary:         c.MangaWithAnilist.Anilist.Description,
-		Count:           c.MangaWithAnilist.Anilist.Chapters,
+		Series:          anilist.String(),
+		Number:          chapter.Info().Number,
+		Web:             chapter.Info().URL,
+		Genres:          anilist.Genres,
+		Summary:         anilist.Description,
+		Count:           anilist.Chapters,
 		Characters:      characters,
 		Year:            date.Year,
 		Month:           date.Month,
 		Day:             date.Day,
-		Publisher:       c.MangaWithAnilist.Anilist.Publisher(),
+		Publisher:       anilist.Publisher(),
 		LanguageISO:     "",
 		StoryArc:        "",
 		StoryArcNumber:  0,
 		ScanInformation: "",
 		AgeRating:       "",
-		CommunityRating: float32(c.MangaWithAnilist.Anilist.AverageScore) / 20,
+		CommunityRating: float32(anilist.AverageScore) / 20,
 		Review:          "",
 		GTIN:            "",
 		Writers:         writers,

@@ -31,6 +31,16 @@ type Manga interface {
 	fmt.Stringer
 
 	Info() MangaInfo
+
+	// AnilistManga returns the set AnilistManga.
+	// This is used to fetch metadata when downloading chapters.
+	//
+	// Also Useful for templates.
+	AnilistManga() (AnilistManga, bool)
+	// SetAnilistManga will provide an AnilistManga for internal use.
+	//
+	// This is controlled on the client, not by libmangal.
+	SetAnilistManga(AnilistManga)
 }
 
 type MangaWithSeriesJSON interface {

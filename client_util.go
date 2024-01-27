@@ -109,18 +109,17 @@ func (c *Client) getCoverURL(ctx context.Context, manga Manga) (string, bool, er
 		return coverURL, true, nil
 	}
 
-	mangaWithAnilist, ok, err := c.Anilist().MakeMangaWithAnilist(ctx, manga)
+	anilistManga, ok, err := c.getMangaAnilist(ctx, manga)
 	if err != nil {
 		return "", false, err
 	}
-
 	if !ok {
 		return "", false, nil
 	}
 
 	for _, coverURL := range []string{
-		mangaWithAnilist.Anilist.CoverImage.ExtraLarge,
-		mangaWithAnilist.Anilist.CoverImage.Medium,
+		anilistManga.CoverImage.ExtraLarge,
+		anilistManga.CoverImage.Medium,
 	} {
 		if coverURL != "" {
 			return coverURL, true, nil
@@ -136,16 +135,15 @@ func (c *Client) getBannerURL(ctx context.Context, manga Manga) (string, bool, e
 		return bannerURL, true, nil
 	}
 
-	mangaWithAnilist, ok, err := c.Anilist().MakeMangaWithAnilist(ctx, manga)
+	anilistManga, ok, err := c.getMangaAnilist(ctx, manga)
 	if err != nil {
 		return "", false, err
 	}
-
 	if !ok {
 		return "", false, nil
 	}
 
-	bannerURL = mangaWithAnilist.Anilist.BannerImage
+	bannerURL = anilistManga.BannerImage
 	if bannerURL != "" {
 		return bannerURL, true, nil
 	}
@@ -163,22 +161,29 @@ func (c *Client) getSeriesJSON(ctx context.Context, manga Manga) (SeriesJSON, er
 		if err != nil {
 			return SeriesJSON{}, err
 		}
-
 		if ok {
 			return seriesJSON, nil
 		}
 	}
 
-	withAnilist, ok, err := c.Anilist().MakeMangaWithAnilist(ctx, manga)
+	anilistManga, ok, err := c.getMangaAnilist(ctx, manga)
 	if err != nil {
 		return SeriesJSON{}, err
 	}
-
 	if !ok {
 		return SeriesJSON{}, errors.New("can't gen series.json from manga")
 	}
 
-	return withAnilist.SeriesJSON(), nil
+	return AnilistSeriesJSON(anilistManga), nil
+}
+
+func (c *Client) getMangaAnilist(ctx context.Context, manga Manga) (AnilistManga, bool, error) {
+	mangaAnilistManga, ok := manga.AnilistManga()
+	if ok {
+		return mangaAnilistManga, true, nil
+	}
+
+	return c.Anilist().FindClosestMangaByManga(ctx, manga)
 }
 
 func (c *Client) writeSeriesJSON(ctx context.Context, manga Manga, out io.Writer) error {
@@ -315,16 +320,15 @@ func (c *Client) getComicInfoXML(
 		return comicInfo, nil
 	}
 
-	chapterWithAnilist, ok, err := c.Anilist().MakeChapterWithAnilist(ctx, chapter)
+	anilistManga, ok, err := c.getMangaAnilist(ctx, chapter.Volume().Manga())
 	if err != nil {
 		return ComicInfoXML{}, err
 	}
-
 	if !ok {
 		return ComicInfoXML{}, errors.New("can't get ComicInfo")
 	}
 
-	return chapterWithAnilist.ComicInfoXML(), nil
+	return AnilistComicInfoXML(chapter, anilistManga), nil
 }
 
 func (c *Client) ReadChapter(ctx context.Context, path string, chapter Chapter, options ReadOptions) error {
