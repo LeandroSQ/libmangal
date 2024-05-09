@@ -1,6 +1,7 @@
 package libmangal
 
 import (
+	"bytes"
 	"encoding/json"
 	"encoding/xml"
 	"strings"
@@ -208,11 +209,7 @@ type comicInfoXMLWrapper struct {
 }
 
 func (c comicInfoXMLWrapper) marshal() ([]byte, error) {
-	return xml.MarshalIndent(
-		c,
-		"",
-		"  ",
-	)
+	return xml.MarshalIndent(c, "", "  ")
 }
 
 // SeriesJSON is similar to ComicInfoXML but designed for
@@ -242,6 +239,14 @@ type seriesJSONWrapper struct {
 	Metadata SeriesJSON `json:"metadata"`
 }
 
+// TODO: need to decide if HTML escaping should be disabled
 func (s seriesJSONWrapper) marshal() ([]byte, error) {
-	return json.MarshalIndent(s, "", "  ")
+	// return json.MarshalIndent(s, "", "  ")
+	buffer := &bytes.Buffer{}
+	enc := json.NewEncoder(buffer)
+	enc.SetEscapeHTML(true)
+	enc.SetIndent("", "  ")
+	err := enc.Encode(s)
+
+	return buffer.Bytes(), err
 }

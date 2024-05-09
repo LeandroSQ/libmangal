@@ -216,9 +216,8 @@ func (a AnilistManga) ComicInfoXML(chapter Chapter) ComicInfoXML {
 
 	// TODO: fill missing
 	return ComicInfoXML{
-		Title: chapter.Info().Title,
-		// Series:          c.Volume().Manga().Info().Title,
-		Series:          a.String(),
+		Title:           chapter.Info().Title,
+		Series:          a.String(), // c.Volume().Manga().Info().Title,
 		Number:          chapter.Info().Number,
 		Web:             chapter.Info().URL,
 		Genres:          a.Genres,
