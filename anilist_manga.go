@@ -112,9 +112,9 @@ func (a AnilistManga) Publisher() string {
 	return publisher
 }
 
-func AnilistSeriesJSON(anilist AnilistManga) SeriesJSON {
+func (a AnilistManga) SeriesJSON() SeriesJSON {
 	var status string
-	switch anilist.Status {
+	switch a.Status {
 	case "FINISHED":
 		status = "Ended"
 	case "RELEASING":
@@ -127,41 +127,41 @@ func AnilistSeriesJSON(anilist AnilistManga) SeriesJSON {
 	// November 2011 - July 2016
 	// June 2021 - Present (when there is no EndDate, meaning it's still publishing)
 	var pubEndDate string
-	if anilist.EndDate != (Date{}) {
+	if a.EndDate != (Date{}) {
 		pubEndDate = fmt.Sprintf(
 			"%s %d",
-			time.Month(anilist.EndDate.Month).String(),
-			anilist.EndDate.Year)
+			time.Month(a.EndDate.Month).String(),
+			a.EndDate.Year)
 	} else {
 		pubEndDate = "Present"
 	}
 
 	publicationRun := fmt.Sprintf(
 		"%s %d - %s",
-		time.Month(anilist.StartDate.Month).String(),
-		anilist.StartDate.Year,
+		time.Month(a.StartDate.Month).String(),
+		a.StartDate.Year,
 		pubEndDate,
 	)
 
 	return SeriesJSON{
 		Type:                 "comicSeries",
-		Name:                 anilist.String(),
-		DescriptionFormatted: anilist.Description,
-		DescriptionText:      anilist.Description,
+		Name:                 a.String(),
+		DescriptionFormatted: a.Description,
+		DescriptionText:      a.Description,
 		Status:               status,
-		Year:                 anilist.StartDate.Year,
-		ComicImage:           anilist.CoverImage.ExtraLarge,
-		Publisher:            anilist.Publisher(),
-		ComicID:              anilist.ID,
+		Year:                 a.StartDate.Year,
+		ComicImage:           a.CoverImage.ExtraLarge,
+		Publisher:            a.Publisher(),
+		ComicID:              a.ID,
 		BookType:             "Print",
-		TotalIssues:          anilist.Chapters,
+		TotalIssues:          a.Chapters,
 		PublicationRun:       publicationRun,
 	}
 }
 
-func AnilistComicInfoXML(chapter Chapter, anilist AnilistManga) ComicInfoXML {
-	characters := make([]string, len(anilist.Characters.Nodes))
-	for i, node := range anilist.Characters.Nodes {
+func (a AnilistManga) ComicInfoXML(chapter Chapter) ComicInfoXML {
+	characters := make([]string, len(a.Characters.Nodes))
+	for i, node := range a.Characters.Nodes {
 		characters[i] = node.Name.Full
 	}
 
@@ -177,15 +177,20 @@ func AnilistComicInfoXML(chapter Chapter, anilist AnilistManga) ComicInfoXML {
 	if chapter.Info().Date != (Date{}) {
 		date = chapter.Info().Date
 	} else {
-		date = anilist.StartDate
+		date = a.StartDate
 	}
 
-	for _, edge := range anilist.Staff.Edges {
-		role := edge.Role
+	for _, edge := range a.Staff.Edges {
+		role := strings.ToLower(edge.Role)
 		name := edge.Node.Name.Full
 		switch {
 		case strings.Contains(role, "story"):
 			writers = append(writers, name)
+			// "Story & Art" happens sometimes, edge case I wish to include,
+			// as this will be skiped for the art case below
+			if strings.Contains(role, "art") {
+				pencillers = append(pencillers, name)
+			}
 		case strings.Contains(role, "art"):
 			pencillers = append(pencillers, name)
 		case strings.Contains(role, "translator"):
@@ -201,7 +206,7 @@ func AnilistComicInfoXML(chapter Chapter, anilist AnilistManga) ComicInfoXML {
 	}
 
 	tags := make([]string, 0)
-	for _, tag := range anilist.Tags {
+	for _, tag := range a.Tags {
 		if tag.Rank < 60 {
 			continue
 		}
@@ -213,23 +218,23 @@ func AnilistComicInfoXML(chapter Chapter, anilist AnilistManga) ComicInfoXML {
 	return ComicInfoXML{
 		Title: chapter.Info().Title,
 		// Series:          c.Volume().Manga().Info().Title,
-		Series:          anilist.String(),
+		Series:          a.String(),
 		Number:          chapter.Info().Number,
 		Web:             chapter.Info().URL,
-		Genres:          anilist.Genres,
-		Summary:         anilist.Description,
-		Count:           anilist.Chapters,
+		Genres:          a.Genres,
+		Summary:         a.Description,
+		Count:           a.Chapters,
 		Characters:      characters,
 		Year:            date.Year,
 		Month:           date.Month,
 		Day:             date.Day,
-		Publisher:       anilist.Publisher(),
+		Publisher:       a.Publisher(),
 		LanguageISO:     "",
 		StoryArc:        "",
 		StoryArcNumber:  0,
 		ScanInformation: "",
 		AgeRating:       "",
-		CommunityRating: float32(anilist.AverageScore) / 20,
+		CommunityRating: float32(a.AverageScore) / 20,
 		Review:          "",
 		GTIN:            "",
 		Writers:         writers,

@@ -174,7 +174,7 @@ func (c *Client) getSeriesJSON(ctx context.Context, manga Manga) (SeriesJSON, er
 		return SeriesJSON{}, errors.New("can't gen series.json from manga")
 	}
 
-	return AnilistSeriesJSON(anilistManga), nil
+	return anilistManga.SeriesJSON(), nil
 }
 
 func (c *Client) getMangaAnilist(ctx context.Context, manga Manga) (AnilistManga, bool, error) {
@@ -328,7 +328,7 @@ func (c *Client) getComicInfoXML(
 		return ComicInfoXML{}, errors.New("can't get ComicInfo")
 	}
 
-	return AnilistComicInfoXML(chapter, anilistManga), nil
+	return anilistManga.ComicInfoXML(chapter), nil
 }
 
 func (c *Client) ReadChapter(ctx context.Context, path string, chapter Chapter, options ReadOptions) error {
