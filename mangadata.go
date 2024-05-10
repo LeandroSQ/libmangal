@@ -53,8 +53,8 @@ type MangaWithSeriesJSON interface {
 }
 
 type VolumeInfo struct {
-	// Number of the volume. Must be greater than 0
-	Number int `json:"number"`
+	// Number of the volume. -1.0 represents "none" volumes (yet to be grouped)
+	Number float32 `json:"number"`
 }
 
 // Volume if a series is popular enough, its chapters
