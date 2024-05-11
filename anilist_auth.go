@@ -23,7 +23,7 @@ func (a *Anilist) Logout() error {
 	return a.options.AccessTokenStore.Delete(anilistStoreAccessCodeStoreKey)
 }
 
-// Authorize will obtain Anilist token for API requests
+// Authorize will obtain Anilist token for API requests.
 func (a *Anilist) Authorize(
 	ctx context.Context,
 	credentials AnilistLoginCredentials,
@@ -50,10 +50,6 @@ func (a *Anilist) Authorize(
 		"grant_type":    "authorization_code",
 		"redirect_uri":  "https://anilist.co/api/v2/oauth/pin",
 	})
-	if err != nil {
-		return err
-	}
-
 	if err != nil {
 		return AnilistError{err}
 	}

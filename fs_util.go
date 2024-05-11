@@ -1,9 +1,10 @@
 package libmangal
 
 import (
-	"github.com/spf13/afero"
 	"io"
 	"path/filepath"
+
+	"github.com/spf13/afero"
 )
 
 // mergeDirectories merges two directories recursively from different filesystems.

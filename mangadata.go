@@ -37,6 +37,7 @@ type Manga interface {
 	//
 	// Also Useful for templates.
 	AnilistManga() (AnilistManga, error)
+
 	// SetAnilistManga will provide an AnilistManga for internal use.
 	//
 	// This is controlled on the client, not by libmangal.

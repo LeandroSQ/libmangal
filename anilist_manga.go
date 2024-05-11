@@ -104,6 +104,7 @@ func (a AnilistManga) String() string {
 func (a AnilistManga) Publisher() string {
 	var publisher string
 	for _, edge := range a.Staff.Edges {
+		// TODO: fix??? "role"??? I think Anilist doesn't provide publisher data.
 		if strings.Contains(edge.Role, "role") {
 			publisher = edge.Node.Name.Full
 			break

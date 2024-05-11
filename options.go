@@ -93,7 +93,7 @@ type DownloadOptions struct {
 // DefaultDownloadOptions constructs default DownloadOptions
 func DefaultDownloadOptions() DownloadOptions {
 	return DownloadOptions{
-		Format:              FormatPDF,
+		Format:              FormatCBZ,
 		Directory:           ".",
 		CreateProviderDir:   false,
 		CreateMangaDir:      true,
@@ -208,7 +208,7 @@ func DefaultClientOptions() ClientOptions {
 			return sanitizePath(manga.Info().Title)
 		},
 		VolumeNameTemplate: func(_ string, volume Volume) string {
-			return sanitizePath(fmt.Sprintf("Vol. %d", volume.Info().Number))
+			return sanitizePath(fmt.Sprintf("Vol. %.1f", volume.Info().Number))
 		},
 		ChapterNameTemplate: func(_ string, chapter Chapter) string {
 			info := chapter.Info()

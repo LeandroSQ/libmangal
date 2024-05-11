@@ -29,13 +29,14 @@ func (d Date) String() string {
 	return fmt.Sprintf("%d-%02d-%02d", d.Year, d.Month, d.Day)
 }
 
+// Anilist is the Anilist client.
 type Anilist struct {
 	accessToken string
 	options     AnilistOptions
 	logger      *Logger
 }
 
-// NewAnilist constructs new Anilist client
+// NewAnilist constructs new Anilist client.
 func NewAnilist(options AnilistOptions) Anilist {
 	var accessToken string
 	found, err := options.AccessTokenStore.Get(anilistStoreAccessCodeStoreKey, &accessToken)
@@ -52,12 +53,12 @@ func NewAnilist(options AnilistOptions) Anilist {
 	return anilist
 }
 
-// GetByID gets anilist manga by its id
+// GetByID gets anilist manga by its id.
 func (a *Anilist) GetByID(
 	ctx context.Context,
-	id int,
+	mangaID int,
 ) (AnilistManga, bool, error) {
-	found, manga, err := a.cacheStatusId(id)
+	found, manga, err := a.cacheStatusId(mangaID)
 	if err != nil {
 		return AnilistManga{}, false, AnilistError{err}
 	}
@@ -66,7 +67,7 @@ func (a *Anilist) GetByID(
 		return manga, true, nil
 	}
 
-	manga, ok, err := a.getByID(ctx, id)
+	manga, ok, err := a.getByID(ctx, mangaID)
 	if err != nil {
 		return AnilistManga{}, false, AnilistError{err}
 	}
@@ -75,7 +76,7 @@ func (a *Anilist) GetByID(
 		return AnilistManga{}, false, nil
 	}
 
-	err = a.cacheSetId(id, manga)
+	err = a.cacheSetId(mangaID, manga)
 	if err != nil {
 		return AnilistManga{}, false, AnilistError{err}
 	}
@@ -85,14 +86,14 @@ func (a *Anilist) GetByID(
 
 func (a *Anilist) getByID(
 	ctx context.Context,
-	id int,
+	mangaID int,
 ) (AnilistManga, bool, error) {
-	a.logger.Log(fmt.Sprintf("Searching manga with id %d on AnilistSearch", id))
+	a.logger.Log(fmt.Sprintf("Searching manga with id %d on AnilistSearch", mangaID))
 
 	body := anilistRequestBody{
 		Query: anilistQuerySearchByID,
 		Variables: map[string]any{
-			"id": id,
+			"id": mangaID,
 		},
 	}
 
@@ -111,6 +112,7 @@ func (a *Anilist) getByID(
 	return *manga, true, nil
 }
 
+// SearchMangas gets a list of anilist mangas given a query (title).
 func (a *Anilist) SearchMangas(
 	ctx context.Context,
 	query string,
@@ -274,7 +276,7 @@ func sendRequest[Data any](
 	return body.Data, nil
 }
 
-// Convenience method to chec for manga title also.
+// FindClosestMangaByManga is a convenience method to search given a Manga.
 func (a *Anilist) FindClosestMangaByManga(
 	ctx context.Context,
 	manga Manga,
@@ -290,6 +292,7 @@ func (a *Anilist) FindClosestMangaByManga(
 	return a.FindClosestManga(ctx, title)
 }
 
+// FindClosestManga gets the manga with the title closest to the queried title.
 func (a *Anilist) FindClosestManga(
 	ctx context.Context,
 	title string,
@@ -312,12 +315,7 @@ func (a *Anilist) FindClosestManga(
 		}
 	}
 
-	manga, ok, err := a.findClosestManga(
-		ctx,
-		title,
-		3,
-		3,
-	)
+	manga, ok, err := a.findClosestManga(ctx, title, 3, 3)
 	if err != nil {
 		return AnilistManga{}, false, AnilistError{err}
 	}
@@ -377,8 +375,9 @@ func (a *Anilist) findClosestManga(
 	return AnilistManga{}, false, nil
 }
 
-func (a *Anilist) BindTitleWithID(title string, anilistMangaId int) error {
-	err := a.options.TitleToIDStore.Set(title, anilistMangaId)
+// BindTitleWithID sets a given id to a title, so on each title search the same manga with that id is obtained.
+func (a *Anilist) BindTitleWithID(title string, mangaID int) error {
+	err := a.options.TitleToIDStore.Set(title, mangaID)
 	if err != nil {
 		return AnilistError{err}
 	}
@@ -386,6 +385,7 @@ func (a *Anilist) BindTitleWithID(title string, anilistMangaId int) error {
 	return nil
 }
 
+// SetMangaProgress sets the reading progress for a given manga id.
 func (a *Anilist) SetMangaProgress(ctx context.Context, mangaID, chapterNumber int) error {
 	if !a.IsAuthorized() {
 		return AnilistError{errors.New("not authorized")}

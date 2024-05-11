@@ -1,5 +1,6 @@
 package libmangal
 
+// TODO: make these configurable
 const (
 	// modeDir is the permission bits used for all dirs created by libmangal
 	modeDir = 0755

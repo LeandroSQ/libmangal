@@ -9,12 +9,12 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-// ProviderInfo is the passport of the provider
+// ProviderInfo is the passport of the provider.
 type ProviderInfo struct {
-	// ID is the unique identifier of the provider
+	// ID is the unique identifier of the provider.
 	ID string `json:"id"`
 
-	// Name is the non-empty name of the provider
+	// Name is the non-empty name of the provider.
 	Name string `json:"name"`
 
 	// Version is a semantic version of the provider.
@@ -34,7 +34,7 @@ type ProviderInfo struct {
 
 // Validate checks if the ProviderInfo is valid.
 // This means that ProviderInfo.Name is non-empty
-// and ProviderInfo.Version is a valid semver
+// and ProviderInfo.Version is a valid semver.
 func (p ProviderInfo) Validate() error {
 	if p.ID == "" {
 		return errors.New("ID must be non-empty")
@@ -58,35 +58,35 @@ func (p ProviderInfo) Validate() error {
 type ProviderLoader interface {
 	fmt.Stringer
 
-	// Info information about Provider
+	// Info information about Provider.
 	Info() ProviderInfo
 
-	// Load loads the Provider
+	// Load loads the Provider.
 	Load(ctx context.Context) (Provider, error)
 }
 
-// Provider exposes methods for searching mangas, getting chapters, pages and images
+// Provider exposes methods for searching mangas, getting chapters, pages and images.
 type Provider interface {
 	fmt.Stringer
 	io.Closer
 
-	// Info information about Provider
+	// Info information about Provider.
 	Info() ProviderInfo
 
-	// SetLogger sets logger to use for this provider
+	// SetLogger sets logger to use for this provider.
 	SetLogger(*Logger)
 
 	// SearchMangas searches for mangas with the given query.
 	//
-	// Implementation should utilize given logger
+	// Implementation should utilize given logger.
 	SearchMangas(
 		ctx context.Context,
 		query string,
 	) ([]Manga, error)
 
-	// MangaVolumes gets volumes of the manga
+	// MangaVolumes gets volumes of the manga.
 	//
-	// Implementation should utilize given logger
+	// Implementation should utilize given logger.
 	MangaVolumes(
 		ctx context.Context,
 		manga Manga,
@@ -94,7 +94,7 @@ type Provider interface {
 
 	// VolumeChapters gets chapters of the given volume.
 	//
-	// Implementation should utilize given logger
+	// Implementation should utilize given logger.
 	VolumeChapters(
 		ctx context.Context,
 		volume Volume,
@@ -110,7 +110,7 @@ type Provider interface {
 
 	// GetPageImage gets raw image contents of the given page.
 	//
-	// Implementation should utilize given loggger
+	// Implementation should utilize given logger.
 	GetPageImage(
 		ctx context.Context,
 		page Page,

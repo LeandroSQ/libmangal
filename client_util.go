@@ -15,14 +15,16 @@ import (
 	"time"
 
 	"github.com/pdfcpu/pdfcpu/pkg/api"
-	"github.com/skratchdot/open-golang/open"
 	"github.com/spf13/afero"
 )
 
 type pathExistsFunc func(string) (bool, error)
 
 // removeChapter will remove chapter at given path.
+//
 // Doesn't matter if it's a directory or a file.
+//
+// Currently unused.
 func (c *Client) removeChapter(chapterPath string) error {
 	c.logger.Log("Removing " + chapterPath)
 
@@ -38,169 +40,118 @@ func (c *Client) removeChapter(chapterPath string) error {
 	return c.options.FS.Remove(chapterPath)
 }
 
-// downloadMangaImage will download image related to manga.
-// For example this can be either banner image or cover image.
-// Manga is required to set Referer header.
-func (c *Client) downloadMangaImage(ctx context.Context, manga Manga, URL string, out io.Writer) error {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, URL, nil)
+func (c *Client) downloadChapterWithMetadata(
+	ctx context.Context,
+	chapter Chapter,
+	options DownloadOptions,
+	existsFunc pathExistsFunc,
+) (string, error) {
+	directory := options.Directory
+
+	var (
+		seriesJSONDir = directory
+		coverDir      = directory
+		bannerDir     = directory
+	)
+
+	if options.CreateProviderDir {
+		directory = filepath.Join(directory, c.ComputeProviderFilename(c.provider.Info()))
+	}
+
+	if options.CreateMangaDir {
+		directory = filepath.Join(directory, c.ComputeMangaFilename(chapter.Volume().Manga()))
+		seriesJSONDir = directory
+		coverDir = directory
+		bannerDir = directory
+	}
+
+	if options.CreateVolumeDir {
+		directory = filepath.Join(directory, c.ComputeVolumeFilename(chapter.Volume()))
+	}
+
+	err := c.options.FS.MkdirAll(directory, modeDir)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	request.Header.Set("Referer", manga.Info().URL)
-	request.Header.Set("User-Agent", UserAgent)
-	request.Header.Set("Accept", "image/webp,image/apng,image/*,*/*;q=0.8")
+	chapterPath := filepath.Join(directory, c.ComputeChapterFilename(chapter, options.Format))
 
-	response, err := c.options.HTTPClient.Do(request)
+	chapterExists, err := existsFunc(chapterPath)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected http status: %s", response.Status)
-	}
-
-	_, err = io.Copy(out, response.Body)
-	return err
-}
-
-// downloadCover will download cover if it doesn't exist
-func (c *Client) downloadCover(ctx context.Context, manga Manga, out io.Writer) error {
-	c.logger.Log("Downloading cover")
-
-	coverURL, ok, err := c.getCoverURL(ctx, manga)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		msg := "Cover url not found"
-		c.logger.Log(msg)
-		return errors.New(msg)
-	}
-
-	c.logger.Log(fmt.Sprintf("Cover url: %s", coverURL))
-	return c.downloadMangaImage(ctx, manga, coverURL, out)
-}
-
-// downloadBanner will download banner if it doesn't exist
-func (c *Client) downloadBanner(ctx context.Context, manga Manga, out io.Writer) error {
-	c.logger.Log("Downloading banner")
-
-	bannerURL, ok, err := c.getBannerURL(ctx, manga)
-	if err != nil {
-		c.logger.Log(err.Error())
-		return err
-	}
-	if !ok {
-		msg := "Banner url not found"
-		c.logger.Log(msg)
-		return errors.New(msg)
-	}
-
-	c.logger.Log(fmt.Sprintf("Banner url: %s", bannerURL))
-	return c.downloadMangaImage(ctx, manga, bannerURL, out)
-}
-
-func (c *Client) getCoverURL(ctx context.Context, manga Manga) (string, bool, error) {
-	coverURL := manga.Info().Cover
-	if coverURL != "" {
-		return coverURL, true, nil
-	}
-
-	anilistManga, ok, err := c.getMangaAnilist(ctx, manga)
-	if err != nil {
-		return "", false, err
-	}
-	if !ok {
-		return "", false, nil
-	}
-
-	for _, coverURL := range []string{
-		anilistManga.CoverImage.ExtraLarge,
-		anilistManga.CoverImage.Medium,
-	} {
-		if coverURL != "" {
-			return coverURL, true, nil
-		}
-	}
-
-	return "", false, nil
-}
-
-func (c *Client) getBannerURL(ctx context.Context, manga Manga) (string, bool, error) {
-	bannerURL := manga.Info().Banner
-	if bannerURL != "" {
-		return bannerURL, true, nil
-	}
-
-	anilistManga, ok, err := c.getMangaAnilist(ctx, manga)
-	if err != nil {
-		return "", false, err
-	}
-	if !ok {
-		return "", false, nil
-	}
-
-	bannerURL = anilistManga.BannerImage
-	if bannerURL != "" {
-		return bannerURL, true, nil
-	}
-
-	return "", false, nil
-}
-
-// getSeriesJSON gets SeriesJSON from the chapter.
-// It tries to check if chapter manga implements MangaWithSeriesJSON
-// in case of failure it will fetch manga from anilist.
-func (c *Client) getSeriesJSON(ctx context.Context, manga Manga) (SeriesJSON, error) {
-	withSeriesJSON, ok := manga.(MangaWithSeriesJSON)
-	if ok {
-		seriesJSON, ok, err := withSeriesJSON.SeriesJSON()
+	if !chapterExists || !options.SkipIfExists {
+		err = c.downloadChapter(ctx, chapter, chapterPath, options)
 		if err != nil {
-			return SeriesJSON{}, err
-		}
-		if ok {
-			return seriesJSON, nil
+			return "", err
 		}
 	}
 
-	anilistManga, ok, err := c.getMangaAnilist(ctx, manga)
-	if err != nil {
-		return SeriesJSON{}, err
-	}
-	if !ok {
-		return SeriesJSON{}, errors.New("can't gen series.json from manga")
-	}
+	if options.WriteSeriesJson {
+		path := filepath.Join(seriesJSONDir, filenameSeriesJSON)
+		exists, err := existsFunc(path)
+		if err != nil {
+			return "", err
+		}
 
-	return anilistManga.SeriesJSON(), nil
-}
+		if !exists {
+			file, err := c.options.FS.Create(path)
+			if err != nil {
+				return "", err
+			}
+			defer file.Close()
 
-func (c *Client) getMangaAnilist(ctx context.Context, manga Manga) (AnilistManga, bool, error) {
-	mangaAnilistManga, err := manga.AnilistManga()
-	if err == nil {
-		return mangaAnilistManga, true, nil
-	}
-
-	return c.Anilist().FindClosestMangaByManga(ctx, manga)
-}
-
-func (c *Client) writeSeriesJSON(ctx context.Context, manga Manga, out io.Writer) error {
-	c.logger.Log(fmt.Sprintf("Writing %s", filenameSeriesJSON))
-
-	seriesJSON, err := c.getSeriesJSON(ctx, manga)
-	if err != nil {
-		return err
+			err = c.writeSeriesJSON(ctx, chapter.Volume().Manga(), file)
+			if err != nil && options.Strict {
+				return "", MetadataError{err}
+			}
+		}
 	}
 
-	marshalled, err := seriesJSON.wrapper().marshal()
-	if err != nil {
-		return err
+	if options.DownloadMangaCover {
+		path := filepath.Join(coverDir, filenameCoverJPG)
+		exists, err := existsFunc(path)
+		if err != nil {
+			return "", err
+		}
+
+		if !exists {
+			file, err := c.options.FS.Create(path)
+			if err != nil {
+				return "", err
+			}
+			defer file.Close()
+
+			err = c.downloadCover(ctx, chapter.Volume().Manga(), file)
+			if err != nil && options.Strict {
+				return "", MetadataError{err}
+			}
+		}
 	}
 
-	_, err = out.Write(marshalled)
-	return err
+	if options.DownloadMangaBanner {
+		path := filepath.Join(bannerDir, filenameBannerJPG)
+		exists, err := existsFunc(path)
+		if err != nil {
+			return "", err
+		}
+
+		if !exists {
+			file, err := c.options.FS.Create(path)
+			if err != nil {
+				return "", err
+			}
+			defer file.Close()
+
+			err = c.downloadBanner(ctx, chapter.Volume().Manga(), file)
+			if err != nil && options.Strict {
+				return "", MetadataError{err}
+			}
+		}
+	}
+
+	return chapterPath, nil
 }
 
 // downloadChapter is a helper function for DownloadChapter
@@ -329,49 +280,6 @@ func (c *Client) getComicInfoXML(
 	}
 
 	return anilistManga.ComicInfoXML(chapter), nil
-}
-
-func (c *Client) ReadChapter(ctx context.Context, path string, chapter Chapter, options ReadOptions) error {
-	c.logger.Log("Opening chapter with the default app")
-
-	err := open.Run(path)
-	if err != nil {
-		return err
-	}
-
-	if options.SaveAnilist && c.Anilist().IsAuthorized() {
-		return c.markChapterAsRead(ctx, chapter)
-	}
-
-	// TODO: save to local history
-
-	return nil
-}
-
-func (c *Client) markChapterAsRead(ctx context.Context, chapter Chapter) error {
-	chapterMangaInfo := chapter.Volume().Manga().Info()
-
-	var titleToSearch string
-
-	if title := chapterMangaInfo.AnilistSearch; title != "" {
-		titleToSearch = title
-	} else if title := chapterMangaInfo.Title; title != "" {
-		titleToSearch = title
-	} else {
-		return fmt.Errorf("can't find title for chapter %q", chapter)
-	}
-
-	manga, ok, err := c.Anilist().FindClosestManga(ctx, titleToSearch)
-	if err != nil {
-		return err
-	}
-
-	if !ok {
-		return fmt.Errorf("manga for chapter %q was not found on anilist", chapter)
-	}
-
-	progress := int(math.Trunc(float64(chapter.Info().Number)))
-	return c.Anilist().SetMangaProgress(ctx, manga.ID, progress)
 }
 
 // savePDF saves pages in FormatPDF
@@ -512,116 +420,195 @@ func (c *Client) saveZIP(
 	return nil
 }
 
-func (c *Client) downloadChapterWithMetadata(
-	ctx context.Context,
-	chapter Chapter,
-	options DownloadOptions,
-	existsFunc pathExistsFunc,
-) (string, error) {
-	directory := options.Directory
+// downloadCover will download cover if it doesn't exist
+func (c *Client) downloadCover(ctx context.Context, manga Manga, out io.Writer) error {
+	c.logger.Log("Downloading cover")
 
-	var (
-		seriesJSONDir = directory
-		coverDir      = directory
-		bannerDir     = directory
-	)
-
-	if options.CreateProviderDir {
-		directory = filepath.Join(directory, c.ComputeProviderFilename(c.provider.Info()))
-	}
-
-	if options.CreateMangaDir {
-		directory = filepath.Join(directory, c.ComputeMangaFilename(chapter.Volume().Manga()))
-		seriesJSONDir = directory
-		coverDir = directory
-		bannerDir = directory
-	}
-
-	if options.CreateVolumeDir {
-		directory = filepath.Join(directory, c.ComputeVolumeFilename(chapter.Volume()))
-	}
-
-	err := c.options.FS.MkdirAll(directory, modeDir)
+	coverURL, ok, err := c.getCoverURL(ctx, manga)
 	if err != nil {
-		return "", err
+		return err
+	}
+	if !ok {
+		msg := "Cover url not found"
+		c.logger.Log(msg)
+		return errors.New(msg)
 	}
 
-	chapterPath := filepath.Join(directory, c.ComputeChapterFilename(chapter, options.Format))
+	c.logger.Log(fmt.Sprintf("Cover url: %s", coverURL))
+	return c.downloadMangaImage(ctx, manga, coverURL, out)
+}
 
-	chapterExists, err := existsFunc(chapterPath)
+func (c *Client) getCoverURL(ctx context.Context, manga Manga) (string, bool, error) {
+	coverURL := manga.Info().Cover
+	if coverURL != "" {
+		return coverURL, true, nil
+	}
+
+	anilistManga, ok, err := c.getMangaAnilist(ctx, manga)
 	if err != nil {
-		return "", err
+		return "", false, err
+	}
+	if !ok {
+		return "", false, nil
 	}
 
-	if !chapterExists || !options.SkipIfExists {
-		err = c.downloadChapter(ctx, chapter, chapterPath, options)
+	for _, coverURL := range []string{
+		anilistManga.CoverImage.ExtraLarge,
+		anilistManga.CoverImage.Medium,
+	} {
+		if coverURL != "" {
+			return coverURL, true, nil
+		}
+	}
+
+	return "", false, nil
+}
+
+// downloadBanner will download banner if it doesn't exist
+func (c *Client) downloadBanner(ctx context.Context, manga Manga, out io.Writer) error {
+	c.logger.Log("Downloading banner")
+
+	bannerURL, ok, err := c.getBannerURL(ctx, manga)
+	if err != nil {
+		c.logger.Log(err.Error())
+		return err
+	}
+	if !ok {
+		msg := "Banner url not found"
+		c.logger.Log(msg)
+		return errors.New(msg)
+	}
+
+	c.logger.Log(fmt.Sprintf("Banner url: %s", bannerURL))
+	return c.downloadMangaImage(ctx, manga, bannerURL, out)
+}
+
+func (c *Client) getBannerURL(ctx context.Context, manga Manga) (string, bool, error) {
+	bannerURL := manga.Info().Banner
+	if bannerURL != "" {
+		return bannerURL, true, nil
+	}
+
+	anilistManga, ok, err := c.getMangaAnilist(ctx, manga)
+	if err != nil {
+		return "", false, err
+	}
+	if !ok {
+		return "", false, nil
+	}
+
+	bannerURL = anilistManga.BannerImage
+	if bannerURL != "" {
+		return bannerURL, true, nil
+	}
+
+	return "", false, nil
+}
+
+// downloadMangaImage will download image related to manga.
+//
+// For example this can be either banner image or cover image.
+//
+// Manga is required to set Referer header.
+func (c *Client) downloadMangaImage(ctx context.Context, manga Manga, URL string, out io.Writer) error {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, URL, nil)
+	if err != nil {
+		return err
+	}
+
+	request.Header.Set("Referer", manga.Info().URL)
+	request.Header.Set("User-Agent", UserAgent)
+	request.Header.Set("Accept", "image/webp,image/apng,image/*,*/*;q=0.8")
+
+	response, err := c.options.HTTPClient.Do(request)
+	if err != nil {
+		return err
+	}
+
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected http status: %s", response.Status)
+	}
+
+	_, err = io.Copy(out, response.Body)
+	return err
+}
+
+// getSeriesJSON gets SeriesJSON from the chapter.
+// It tries to check if chapter manga implements MangaWithSeriesJSON
+// in case of failure it will fetch manga from anilist.
+func (c *Client) getSeriesJSON(ctx context.Context, manga Manga) (SeriesJSON, error) {
+	withSeriesJSON, ok := manga.(MangaWithSeriesJSON)
+	if ok {
+		seriesJSON, ok, err := withSeriesJSON.SeriesJSON()
 		if err != nil {
-			return "", err
+			return SeriesJSON{}, err
+		}
+		if ok {
+			return seriesJSON, nil
 		}
 	}
 
-	if options.WriteSeriesJson {
-		path := filepath.Join(seriesJSONDir, filenameSeriesJSON)
-		exists, err := existsFunc(path)
-		if err != nil {
-			return "", err
-		}
-
-		if !exists {
-			file, err := c.options.FS.Create(path)
-			if err != nil {
-				return "", err
-			}
-			defer file.Close()
-
-			err = c.writeSeriesJSON(ctx, chapter.Volume().Manga(), file)
-			if err != nil && options.Strict {
-				return "", MetadataError{err}
-			}
-		}
+	anilistManga, ok, err := c.getMangaAnilist(ctx, manga)
+	if err != nil {
+		return SeriesJSON{}, err
+	}
+	if !ok {
+		return SeriesJSON{}, errors.New("can't gen series.json from manga")
 	}
 
-	if options.DownloadMangaCover {
-		path := filepath.Join(coverDir, filenameCoverJPG)
-		exists, err := existsFunc(path)
-		if err != nil {
-			return "", err
-		}
+	return anilistManga.SeriesJSON(), nil
+}
 
-		if !exists {
-			file, err := c.options.FS.Create(path)
-			if err != nil {
-				return "", err
-			}
-			defer file.Close()
-
-			err = c.downloadCover(ctx, chapter.Volume().Manga(), file)
-			if err != nil && options.Strict {
-				return "", MetadataError{err}
-			}
-		}
+func (c *Client) getMangaAnilist(ctx context.Context, manga Manga) (AnilistManga, bool, error) {
+	mangaAnilistManga, err := manga.AnilistManga()
+	if err == nil {
+		return mangaAnilistManga, true, nil
 	}
 
-	if options.DownloadMangaBanner {
-		path := filepath.Join(bannerDir, filenameBannerJPG)
-		exists, err := existsFunc(path)
-		if err != nil {
-			return "", err
-		}
+	return c.Anilist().FindClosestMangaByManga(ctx, manga)
+}
 
-		if !exists {
-			file, err := c.options.FS.Create(path)
-			if err != nil {
-				return "", err
-			}
-			defer file.Close()
+func (c *Client) writeSeriesJSON(ctx context.Context, manga Manga, out io.Writer) error {
+	c.logger.Log(fmt.Sprintf("Writing %s", filenameSeriesJSON))
 
-			err = c.downloadBanner(ctx, chapter.Volume().Manga(), file)
-			if err != nil && options.Strict {
-				return "", MetadataError{err}
-			}
-		}
+	seriesJSON, err := c.getSeriesJSON(ctx, manga)
+	if err != nil {
+		return err
 	}
 
-	return chapterPath, nil
+	marshalled, err := seriesJSON.wrapper().marshal()
+	if err != nil {
+		return err
+	}
+
+	_, err = out.Write(marshalled)
+	return err
+}
+
+func (c *Client) markChapterAsRead(ctx context.Context, chapter Chapter) error {
+	chapterMangaInfo := chapter.Volume().Manga().Info()
+
+	var titleToSearch string
+
+	if title := chapterMangaInfo.AnilistSearch; title != "" {
+		titleToSearch = title
+	} else if title := chapterMangaInfo.Title; title != "" {
+		titleToSearch = title
+	} else {
+		return fmt.Errorf("can't find title for chapter %q", chapter)
+	}
+
+	manga, ok, err := c.Anilist().FindClosestManga(ctx, titleToSearch)
+	if err != nil {
+		return err
+	}
+
+	if !ok {
+		return fmt.Errorf("manga for chapter %q was not found on anilist", chapter)
+	}
+
+	progress := int(math.Trunc(float64(chapter.Info().Number)))
+	return c.Anilist().SetMangaProgress(ctx, manga.ID, progress)
 }
