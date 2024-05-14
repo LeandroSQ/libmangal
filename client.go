@@ -149,13 +149,8 @@ func (c *Client) DownloadPagesInBatch(
 	c.logger.Log(fmt.Sprintf("Downloading %d pages", len(pages)))
 
 	g, ctx := errgroup.WithContext(ctx)
-
 	downloadedPages := make([]PageWithImage, len(pages))
-
 	for i, page := range pages {
-		// TODO: update this once go version is upgraded to 1.22?
-		// https://github.com/golang/go/wiki/CommonMistakes#using-goroutines-on-loop-iterator-variables
-		i, page := i, page
 		g.Go(func() error {
 			c.logger.Log(fmt.Sprintf("Page #%03d: downloading", i+1))
 
