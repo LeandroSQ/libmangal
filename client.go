@@ -146,6 +146,9 @@ func (c *Client) DownloadPagesInBatch(
 	ctx context.Context,
 	pages []Page,
 ) ([]PageWithImage, error) {
+	if len(pages) == 0 {
+		return nil, fmt.Errorf("No pages provided for chapter")
+	}
 	c.logger.Log(fmt.Sprintf("Downloading %d pages", len(pages)))
 
 	g, ctx := errgroup.WithContext(ctx)
