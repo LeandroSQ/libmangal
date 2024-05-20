@@ -179,7 +179,7 @@ type comicInfoXMLWrapper struct {
 
 	Title           string  `xml:"Title,omitempty"`
 	Series          string  `xml:"Series,omitempty"`
-	Number          float32 `xml:"Number,omitempty"`
+	Number          float32 `xml:"Number"` // Omiting removes chapter 0.0
 	Web             string  `xml:"Web,omitempty"`
 	Genre           string  `xml:"Genre,omitempty"`
 	Summary         string  `xml:"Summary,omitempty"`
