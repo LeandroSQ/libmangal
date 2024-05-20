@@ -120,7 +120,7 @@ func (c *Client) downloadChapterWithMetadata(
 		}
 	}
 
-	if options.WriteSeriesJson {
+	if options.WriteSeriesJSON {
 		path := filepath.Join(seriesJSONDir, filenameSeriesJSON)
 		exists, err := existsFunc(path)
 		if err != nil {
@@ -262,9 +262,13 @@ func (c *Client) downloadChapter(
 
 		return c.saveZIP(downloadedPages, file)
 	case FormatCBZ:
-		comicInfoXML, err := c.getComicInfoXML(chapter, anilistManga)
-		if err != nil && options.Strict {
-			return err
+		var comicInfoXML *ComicInfoXML
+		if options.WriteComicInfoXML {
+			ciXML, err := c.getComicInfoXML(chapter, anilistManga)
+			if err != nil && options.Strict {
+				return err
+			}
+			comicInfoXML = &ciXML
 		}
 
 		file, err := c.options.FS.Create(path)
@@ -340,7 +344,7 @@ func (c *Client) savePDF(
 func (c *Client) saveCBZ(
 	pages []PageWithImage,
 	out io.Writer,
-	comicInfoXml ComicInfoXML,
+	comicInfoXml *ComicInfoXML,
 	options ComicInfoXMLOptions,
 ) error {
 	c.logger.Log(fmt.Sprintf("Saving %d pages as CBZ", len(pages)))
@@ -364,25 +368,27 @@ func (c *Client) saveCBZ(
 		}
 	}
 
-	wrapper := comicInfoXml.wrapper(options)
-	wrapper.PageCount = len(pages)
-	marshalled, err := wrapper.marshal()
-	if err != nil {
-		return err
-	}
+	if comicInfoXml != nil {
+		wrapper := comicInfoXml.wrapper(options)
+		wrapper.PageCount = len(pages)
+		marshalled, err := wrapper.marshal()
+		if err != nil {
+			return err
+		}
 
-	writer, err := zipWriter.CreateHeader(&zip.FileHeader{
-		Name:     filenameComicInfoXML,
-		Method:   zip.Store,
-		Modified: time.Now(),
-	})
-	if err != nil {
-		return err
-	}
+		writer, err := zipWriter.CreateHeader(&zip.FileHeader{
+			Name:     filenameComicInfoXML,
+			Method:   zip.Store,
+			Modified: time.Now(),
+		})
+		if err != nil {
+			return err
+		}
 
-	_, err = writer.Write(marshalled)
-	if err != nil {
-		return err
+		_, err = writer.Write(marshalled)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

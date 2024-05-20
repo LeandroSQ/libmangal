@@ -60,12 +60,12 @@ type DownloadOptions struct {
 	// DownloadMangaBanner or not. Will not download banner again if its already downloaded.
 	DownloadMangaBanner bool
 
-	// WriteSeriesJson write metadata series.json file in the manga directory.
-	WriteSeriesJson bool
+	// WriteSeriesJSON write metadata series.json file in the manga directory.
+	WriteSeriesJSON bool
 
-	// WriteComicInfoXml write metadata ComicInfo.xml file to the .cbz archive when
+	// WriteComicInfoXML write metadata ComicInfo.xml file to the .cbz archive when
 	// downloading with FormatCBZ.
-	WriteComicInfoXml bool
+	WriteComicInfoXML bool
 
 	// ReadAfter will open the chapter for reading after it was downloaded.
 	// It will use os default app for resulting mimetype.
@@ -102,8 +102,8 @@ func DefaultDownloadOptions() DownloadOptions {
 		SkipIfExists:        true,
 		DownloadMangaCover:  false,
 		DownloadMangaBanner: false,
-		WriteSeriesJson:     false,
-		WriteComicInfoXml:   false,
+		WriteSeriesJSON:     false,
+		WriteComicInfoXML:   false,
 		ReadAfter:           false,
 		ImageTransformer: func(img []byte) ([]byte, error) {
 			return img, nil

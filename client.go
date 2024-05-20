@@ -95,6 +95,8 @@ func (c *Client) Info() ProviderInfo {
 	return c.provider.Info()
 }
 
+// TODO: add data about ComicInfoXML?
+//
 // DownloadedChapter provides a way to move downloaded chapter
 // data around for easier handling.
 type DownloadedChapter struct {
