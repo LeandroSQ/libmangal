@@ -3,6 +3,7 @@ package libmangal
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	"github.com/skratchdot/open-golang/open"
 	"github.com/spf13/afero"
@@ -94,6 +95,41 @@ func (c *Client) Info() ProviderInfo {
 	return c.provider.Info()
 }
 
+// DownloadedChapter provides a way to move downloaded chapter
+// data around for easier handling.
+type DownloadedChapter struct {
+	// Name of the chapter, without directories.
+	Name string `json:"name"`
+
+	// Directory of the chapter (absolute).
+	Directory string `json:"directory"`
+
+	// ChapterStatus is the status of the downloaded chapter.
+	ChapterStatus DownloadStatus `json:"chapter_status"`
+
+	// SeriesJSONStatus is the status of the downloaded series.json.
+	SeriesJSONStatus DownloadStatus `json:"series_json_status"`
+
+	// ChapterStatus is the status of the downloaded chapter
+	CoverStatus DownloadStatus `json:"cover_status"`
+
+	// ChapterStatus is the status of the downloaded chapter.
+	BannerStatus DownloadStatus `json:"banner_status"`
+}
+
+func (dc DownloadedChapter) Path() string {
+	return filepath.Join(dc.Directory, dc.Name)
+}
+
+type DownloadStatus string
+
+const (
+	DownloadStatusNew         DownloadStatus = "new"
+	DownloadStatusSkip        DownloadStatus = "skip"
+	DownloadStatusExists      DownloadStatus = "exists"
+	DownloadStatusOverwritten DownloadStatus = "overwritten"
+)
+
 // DownloadChapter downloads and saves chapter to the specified
 // directory in the given format.
 //
@@ -102,7 +138,7 @@ func (c *Client) DownloadChapter(
 	ctx context.Context,
 	chapter Chapter,
 	options DownloadOptions,
-) (string, error) {
+) (DownloadedChapter, error) {
 	c.logger.Log(fmt.Sprintf("Downloading chapter %q as %s", chapter, options.Format))
 
 	// a temp client is used to download everything
@@ -116,25 +152,26 @@ func (c *Client) DownloadChapter(
 
 	tmpClient.options.FS = afero.NewMemMapFs()
 
-	path, err := tmpClient.downloadChapterWithMetadata(ctx, chapter, options, func(path string) (bool, error) {
+	downChap, err := tmpClient.downloadChapterWithMetadata(ctx, chapter, options, func(path string) (bool, error) {
 		return afero.Exists(c.options.FS, path)
 	})
 	if err != nil {
-		return "", err
+		return DownloadedChapter{}, err
 	}
 
 	if err := mergeDirectories(
 		c.FS(), options.Directory,
 		tmpClient.FS(), options.Directory,
 	); err != nil {
-		return "", err
+		return DownloadedChapter{}, err
 	}
 
+	path := filepath.Join(downChap.Directory, downChap.Name)
 	if options.ReadAfter {
-		return path, c.ReadChapter(ctx, path, chapter, options.ReadOptions)
+		return downChap, c.ReadChapter(ctx, path, chapter, options.ReadOptions)
 	}
 
-	return path, nil
+	return downChap, nil
 }
 
 // DownloadPagesInBatch downloads multiple pages in batch

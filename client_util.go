@@ -50,7 +50,7 @@ func (c *Client) downloadChapterWithMetadata(
 	chapter Chapter,
 	options DownloadOptions,
 	existsFunc pathExistsFunc,
-) (string, error) {
+) (DownloadedChapter, error) {
 	directory := options.Directory
 
 	var (
@@ -76,30 +76,47 @@ func (c *Client) downloadChapterWithMetadata(
 
 	err := c.options.FS.MkdirAll(directory, modeDir)
 	if err != nil {
-		return "", err
+		return DownloadedChapter{}, err
 	}
 
-	chapterPath := filepath.Join(directory, c.ComputeChapterFilename(chapter, options.Format))
+	chapterName := c.ComputeChapterFilename(chapter, options.Format)
+	chapterPath := filepath.Join(directory, chapterName)
 
 	chapterExists, err := existsFunc(chapterPath)
 	if err != nil {
-		return "", err
+		return DownloadedChapter{}, err
 	}
 
 	manga := chapter.Volume().Manga()
 	anilistManga, found, err := c.getAnilistManga(ctx, manga)
 	if err != nil {
-		return "", err
+		return DownloadedChapter{}, err
 	}
 	if !found {
-		c.logger.Log(fmt.Sprintf("Couldn't find associated anilist manga for %q", manga.Info().Title))
-		return "", err
+		msg := fmt.Sprintf("Couldn't find associated anilist manga for %q", manga.Info().Title)
+		c.logger.Log(msg)
+		return DownloadedChapter{}, fmt.Errorf(msg)
+	}
+
+	// Data about downloaded chapter
+	downChap := DownloadedChapter{
+		Name:             chapterName,
+		Directory:        directory,
+		ChapterStatus:    DownloadStatusExists,
+		SeriesJSONStatus: DownloadStatusSkip,
+		CoverStatus:      DownloadStatusSkip,
+		BannerStatus:     DownloadStatusSkip,
 	}
 
 	if !chapterExists || !options.SkipIfExists {
 		err = c.downloadChapter(ctx, chapter, anilistManga, chapterPath, options)
 		if err != nil {
-			return "", err
+			return DownloadedChapter{}, err
+		}
+
+		downChap.ChapterStatus = DownloadStatusNew
+		if !options.SkipIfExists {
+			downChap.ChapterStatus = DownloadStatusOverwritten
 		}
 	}
 
@@ -107,20 +124,23 @@ func (c *Client) downloadChapterWithMetadata(
 		path := filepath.Join(seriesJSONDir, filenameSeriesJSON)
 		exists, err := existsFunc(path)
 		if err != nil {
-			return "", err
+			return DownloadedChapter{}, err
 		}
 
 		if !exists {
 			file, err := c.options.FS.Create(path)
 			if err != nil {
-				return "", err
+				return DownloadedChapter{}, err
 			}
 			defer file.Close()
 
 			err = c.writeSeriesJSON(manga, anilistManga, file)
 			if err != nil && options.Strict {
-				return "", MetadataError{err}
+				return DownloadedChapter{}, MetadataError{err}
 			}
+			downChap.SeriesJSONStatus = DownloadStatusNew
+		} else {
+			downChap.SeriesJSONStatus = DownloadStatusExists
 		}
 	}
 
@@ -128,20 +148,23 @@ func (c *Client) downloadChapterWithMetadata(
 		path := filepath.Join(coverDir, filenameCoverJPG)
 		exists, err := existsFunc(path)
 		if err != nil {
-			return "", err
+			return DownloadedChapter{}, err
 		}
 
 		if !exists {
 			file, err := c.options.FS.Create(path)
 			if err != nil {
-				return "", err
+				return DownloadedChapter{}, err
 			}
 			defer file.Close()
 
 			err = c.downloadCoverBanner(ctx, manga, mangaCover, anilistManga, file)
 			if err != nil && options.Strict {
-				return "", MetadataError{err}
+				return DownloadedChapter{}, MetadataError{err}
 			}
+			downChap.CoverStatus = DownloadStatusNew
+		} else {
+			downChap.CoverStatus = DownloadStatusExists
 		}
 	}
 
@@ -149,24 +172,27 @@ func (c *Client) downloadChapterWithMetadata(
 		path := filepath.Join(bannerDir, filenameBannerJPG)
 		exists, err := existsFunc(path)
 		if err != nil {
-			return "", err
+			return DownloadedChapter{}, err
 		}
 
 		if !exists {
 			file, err := c.options.FS.Create(path)
 			if err != nil {
-				return "", err
+				return DownloadedChapter{}, err
 			}
 			defer file.Close()
 
 			err = c.downloadCoverBanner(ctx, manga, mangaBanner, anilistManga, file)
 			if err != nil && options.Strict {
-				return "", MetadataError{err}
+				return DownloadedChapter{}, MetadataError{err}
 			}
+			downChap.BannerStatus = DownloadStatusNew
+		} else {
+			downChap.BannerStatus = DownloadStatusExists
 		}
 	}
 
-	return chapterPath, nil
+	return downChap, nil
 }
 
 // downloadChapter is a helper function for DownloadChapter

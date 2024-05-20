@@ -54,7 +54,7 @@ type MangaWithSeriesJSON interface {
 }
 
 type VolumeInfo struct {
-	// Number of the volume. -1.0 represents "none" volumes (yet to be grouped)
+	// Number of the volume.
 	Number float32 `json:"number"`
 }
 
@@ -63,7 +63,7 @@ type VolumeInfo struct {
 // which usually feature a few chapters of the overall story.
 // Most Manga series are long-running and can span multiple volumes.
 //
-// Mangal expects that each Manga must have at least one Volume
+// Mangal expects that each Manga must have at least one Volume.
 type Volume interface {
 	fmt.Stringer
 
@@ -135,7 +135,7 @@ type Page interface {
 	Chapter() Chapter
 }
 
-// PageWithImage is a Page with downloaded image
+// PageWithImage is a Page with downloaded image.
 type PageWithImage interface {
 	Page
 
@@ -143,7 +143,7 @@ type PageWithImage interface {
 	// Implementation should expose this method only if the Page already contains image contents.
 	GetImage() []byte
 
-	// SetImage sets the image contents. This is used by DownloadOptions.ImageTransformer
+	// SetImage sets the image contents. This is used by DownloadOptions.ImageTransformer.
 	SetImage(newImage []byte)
 }
 
