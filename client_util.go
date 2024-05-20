@@ -120,7 +120,8 @@ func (c *Client) downloadChapterWithMetadata(
 		}
 	}
 
-	if options.WriteSeriesJSON {
+	skip := options.SkipSeriesJSONIfOngoing && anilistManga.Status == "RELEASING"
+	if options.WriteSeriesJSON && !skip {
 		path := filepath.Join(seriesJSONDir, filenameSeriesJSON)
 		exists, err := existsFunc(path)
 		if err != nil {

@@ -63,6 +63,14 @@ type DownloadOptions struct {
 	// WriteSeriesJSON write metadata series.json file in the manga directory.
 	WriteSeriesJSON bool
 
+	// SkipSeriesJSONIfOngoing will avoid writing series.json file for ongoing series,
+	// due to lack of TotalIssues metadata provided by Anilist for example.
+	//
+	// There are issues with _some_ parsers when the TotalIssues is zero (I see you, Komga),
+	// so this is a workaround. Also this avoids checks to overwrite series.json on each chapter,
+	// silly, no (if only Komga would fix that)?
+	SkipSeriesJSONIfOngoing bool
+
 	// WriteComicInfoXML write metadata ComicInfo.xml file to the .cbz archive when
 	// downloading with FormatCBZ.
 	WriteComicInfoXML bool
@@ -93,18 +101,19 @@ type DownloadOptions struct {
 // DefaultDownloadOptions constructs default DownloadOptions
 func DefaultDownloadOptions() DownloadOptions {
 	return DownloadOptions{
-		Format:              FormatCBZ,
-		Directory:           ".",
-		CreateProviderDir:   false,
-		CreateMangaDir:      true,
-		CreateVolumeDir:     false,
-		Strict:              true,
-		SkipIfExists:        true,
-		DownloadMangaCover:  false,
-		DownloadMangaBanner: false,
-		WriteSeriesJSON:     false,
-		WriteComicInfoXML:   false,
-		ReadAfter:           false,
+		Format:                  FormatCBZ,
+		Directory:               ".",
+		CreateProviderDir:       false,
+		CreateMangaDir:          true,
+		CreateVolumeDir:         false,
+		Strict:                  true,
+		SkipIfExists:            true,
+		DownloadMangaCover:      false,
+		DownloadMangaBanner:     false,
+		WriteSeriesJSON:         false,
+		SkipSeriesJSONIfOngoing: true, // Sensible default to avoid external parser issues
+		WriteComicInfoXML:       false,
+		ReadAfter:               false,
 		ImageTransformer: func(img []byte) ([]byte, error) {
 			return img, nil
 		},
