@@ -162,6 +162,7 @@ func (c *Client) DownloadChapter(
 	}
 
 	if err := mergeDirectories(
+		c.options.ModeDir,
 		c.FS(), options.Directory,
 		tmpClient.FS(), options.Directory,
 	); err != nil {

@@ -74,7 +74,7 @@ func (c *Client) downloadChapterWithMetadata(
 		directory = filepath.Join(directory, c.ComputeVolumeFilename(chapter.Volume()))
 	}
 
-	err := c.options.FS.MkdirAll(directory, modeDir)
+	err := c.options.FS.MkdirAll(directory, c.options.ModeDir)
 	if err != nil {
 		return DownloadedChapter{}, err
 	}
@@ -280,7 +280,7 @@ func (c *Client) downloadChapter(
 
 		return c.saveCBZ(downloadedPages, file, comicInfoXML, options.ComicInfoXMLOptions)
 	case FormatImages:
-		if err := c.options.FS.MkdirAll(path, modeDir); err != nil {
+		if err := c.options.FS.MkdirAll(path, c.options.ModeDir); err != nil {
 			return err
 		}
 
@@ -290,7 +290,7 @@ func (c *Client) downloadChapter(
 				c.options.FS,
 				filepath.Join(path, name),
 				page.GetImage(),
-				modeFile,
+				c.options.ModeFile,
 			)
 			if err != nil {
 				return err
@@ -409,7 +409,7 @@ func (c *Client) saveTAR(
 		err := tarWriter.WriteHeader(&tar.Header{
 			Name:    fmt.Sprintf("%04d%s", i+1, page.GetExtension()),
 			Size:    int64(len(image)),
-			Mode:    modeFile,
+			Mode:    int64(c.options.ModeFile),
 			ModTime: time.Now(),
 		})
 		if err != nil {
@@ -525,7 +525,7 @@ func (c *Client) downloadMangaImage(ctx context.Context, manga Manga, URL string
 	// TODO: change referer? this asumes that the cover/banner URL comes
 	// from the manga site itself, what if it comes from anilist?
 	request.Header.Set("Referer", manga.Info().URL)
-	request.Header.Set("User-Agent", UserAgent)
+	request.Header.Set("User-Agent", c.options.UserAgent)
 	request.Header.Set("Accept", "image/webp,image/apng,image/*,*/*;q=0.8")
 
 	response, err := c.options.HTTPClient.Do(request)

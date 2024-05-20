@@ -2,6 +2,7 @@ package libmangal
 
 import (
 	"io"
+	"io/fs"
 	"path/filepath"
 
 	"github.com/spf13/afero"
@@ -10,6 +11,7 @@ import (
 // mergeDirectories merges two directories recursively from different filesystems.
 // If a file exists in both directories it will be overwritten.
 func mergeDirectories(
+	modeDir fs.FileMode,
 	dstFS afero.Fs, dstDir string,
 	srcFS afero.Fs, srcDir string,
 ) error {
@@ -24,6 +26,7 @@ func mergeDirectories(
 
 		if srcFile.IsDir() {
 			if err := mergeDirectories(
+				modeDir,
 				dstFS, dstFilePath,
 				srcFS, srcFilePath,
 			); err != nil {

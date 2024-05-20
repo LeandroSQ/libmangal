@@ -2,11 +2,18 @@ package libmangal
 
 import (
 	"fmt"
+	"io/fs"
 	"net/http"
 
 	"github.com/philippgille/gokv"
 	"github.com/philippgille/gokv/syncmap"
 	"github.com/spf13/afero"
+)
+
+const (
+	defaultUserAgent string      = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0"
+	defaultModeDir   fs.FileMode = 0o755
+	defaultModeFile  fs.FileMode = 0o644
 )
 
 type ReadOptions struct {
@@ -168,12 +175,21 @@ func DefaultAnilistOptions() AnilistOptions {
 // ClientOptions is options that client would use during its runtime.
 // See DefaultClientOptions
 type ClientOptions struct {
-	// HTTPClient is http client that client would use for requests
+	// HTTPClient is http client that client would use for requests.
 	HTTPClient *http.Client
+
+	// UserAgent to use when making HTTP requests.
+	UserAgent string
 
 	// FS is a file system abstraction
 	// that the client will use.
 	FS afero.Fs
+
+	// ModeDir is the is the permission bits used for all dirs created.
+	ModeDir fs.FileMode
+
+	// ModeFile is the permission bits used for all files created by libmangal
+	ModeFile fs.FileMode
 
 	// ProviderNameTemplate defines how provider filenames will look when downloaded.
 	ProviderNameTemplate func(
@@ -209,6 +225,9 @@ func DefaultClientOptions() ClientOptions {
 	anilist := NewAnilist(DefaultAnilistOptions())
 	return ClientOptions{
 		HTTPClient: &http.Client{},
+		UserAgent:  defaultUserAgent,
+		ModeDir:    defaultModeDir,
+		ModeFile:   defaultModeFile,
 		FS:         afero.NewOsFs(),
 		ProviderNameTemplate: func(provider ProviderInfo) string {
 			return sanitizePath(provider.Name)
