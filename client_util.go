@@ -221,7 +221,7 @@ func (c *Client) downloadChapter(
 		default:
 		}
 
-		image, err := options.ImageTransformer(page.GetImage())
+		image, err := options.ImageTransformer(page.Image())
 		if err != nil {
 			return err
 		}
@@ -285,11 +285,11 @@ func (c *Client) downloadChapter(
 		}
 
 		for i, page := range downloadedPages {
-			name := fmt.Sprintf("%04d%s", i+1, page.GetExtension())
+			name := fmt.Sprintf("%04d%s", i+1, page.Extension())
 			err := afero.WriteFile(
 				c.options.FS,
 				filepath.Join(path, name),
-				page.GetImage(),
+				page.Image(),
 				c.options.ModeFile,
 			)
 			if err != nil {
@@ -314,12 +314,13 @@ func (c *Client) getComicInfoXML(
 ) (ComicInfoXML, error) {
 	withComicInfoXML, ok := chapter.(ChapterWithComicInfoXML)
 	if ok {
-		comicInfo, err := withComicInfoXML.ComicInfoXML()
+		comicInfo, found, err := withComicInfoXML.ComicInfoXML()
 		if err != nil {
 			return ComicInfoXML{}, err
 		}
-
-		return comicInfo, nil
+		if found {
+			return comicInfo, nil
+		}
 	}
 
 	return anilistManga.ComicInfoXML(chapter), nil
@@ -335,7 +336,7 @@ func (c *Client) savePDF(
 	// convert to readers
 	images := make([]io.Reader, len(pages))
 	for i, page := range pages {
-		images[i] = bytes.NewReader(page.GetImage())
+		images[i] = bytes.NewReader(page.Image())
 	}
 
 	return api.ImportImages(nil, out, images, nil, nil)
@@ -355,7 +356,7 @@ func (c *Client) saveCBZ(
 
 	for i, page := range pages {
 		writer, err := zipWriter.CreateHeader(&zip.FileHeader{
-			Name:     fmt.Sprintf("%04d%s", i+1, page.GetExtension()),
+			Name:     fmt.Sprintf("%04d%s", i+1, page.Extension()),
 			Method:   zip.Store,
 			Modified: time.Now(),
 		})
@@ -363,7 +364,7 @@ func (c *Client) saveCBZ(
 			return err
 		}
 
-		_, err = writer.Write(page.GetImage())
+		_, err = writer.Write(page.Image())
 		if err != nil {
 			return err
 		}
@@ -405,9 +406,9 @@ func (c *Client) saveTAR(
 	defer tarWriter.Close()
 
 	for i, page := range pages {
-		image := page.GetImage()
+		image := page.Image()
 		err := tarWriter.WriteHeader(&tar.Header{
-			Name:    fmt.Sprintf("%04d%s", i+1, page.GetExtension()),
+			Name:    fmt.Sprintf("%04d%s", i+1, page.Extension()),
 			Size:    int64(len(image)),
 			Mode:    int64(c.options.ModeFile),
 			ModTime: time.Now(),
@@ -448,7 +449,7 @@ func (c *Client) saveZIP(
 
 	for i, page := range pages {
 		writer, err := zipWriter.CreateHeader(&zip.FileHeader{
-			Name:     fmt.Sprintf("%04d%s", i+1, page.GetExtension()),
+			Name:     fmt.Sprintf("%04d%s", i+1, page.Extension()),
 			Method:   zip.Store,
 			Modified: time.Now(),
 		})
@@ -456,7 +457,7 @@ func (c *Client) saveZIP(
 			return err
 		}
 
-		_, err = writer.Write(page.GetImage())
+		_, err = writer.Write(page.Image())
 		if err != nil {
 			return err
 		}
@@ -550,11 +551,11 @@ func (c *Client) downloadMangaImage(ctx context.Context, manga Manga, URL string
 func (c *Client) getSeriesJSON(manga Manga, anilistManga AnilistManga) (SeriesJSON, error) {
 	withSeriesJSON, ok := manga.(MangaWithSeriesJSON)
 	if ok {
-		seriesJSON, ok, err := withSeriesJSON.SeriesJSON()
+		seriesJSON, found, err := withSeriesJSON.SeriesJSON()
 		if err != nil {
 			return SeriesJSON{}, err
 		}
-		if ok {
+		if found {
 			return seriesJSON, nil
 		}
 	}
