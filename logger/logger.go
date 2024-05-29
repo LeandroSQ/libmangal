@@ -1,4 +1,4 @@
-package libmangal
+package logger
 
 import (
 	"fmt"

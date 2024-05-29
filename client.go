@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/luevano/libmangal/logger"
+	"github.com/luevano/libmangal/mangadata"
+	"github.com/luevano/libmangal/metadata/anilist"
 	"github.com/skratchdot/open-golang/open"
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
@@ -16,7 +19,7 @@ import (
 type Client struct {
 	provider Provider
 	options  ClientOptions
-	logger   *Logger
+	logger   *logger.Logger
 }
 
 // NewClient creates a new client from ProviderLoader.
@@ -39,7 +42,7 @@ func NewClient(
 		return nil, err
 	}
 
-	logger := NewLogger()
+	logger := logger.NewLogger()
 	logger.SetPrefix(providerInfo.ID)
 	provider.SetLogger(logger)
 
@@ -54,11 +57,11 @@ func (c *Client) FS() afero.Fs {
 	return c.options.FS
 }
 
-func (c *Client) Anilist() *Anilist {
+func (c *Client) Anilist() *anilist.Anilist {
 	return c.options.Anilist
 }
 
-func (c *Client) Logger() *Logger {
+func (c *Client) Logger() *logger.Logger {
 	return c.logger
 }
 
@@ -67,22 +70,22 @@ func (c *Client) Close() error {
 }
 
 // SearchMangas searches for mangas with the given query.
-func (c *Client) SearchMangas(ctx context.Context, query string) ([]Manga, error) {
+func (c *Client) SearchMangas(ctx context.Context, query string) ([]mangadata.Manga, error) {
 	return c.provider.SearchMangas(ctx, query)
 }
 
 // MangaVolumes gets chapters of the given manga.
-func (c *Client) MangaVolumes(ctx context.Context, manga Manga) ([]Volume, error) {
+func (c *Client) MangaVolumes(ctx context.Context, manga mangadata.Manga) ([]mangadata.Volume, error) {
 	return c.provider.MangaVolumes(ctx, manga)
 }
 
 // VolumeChapters gets chapters of the given manga.
-func (c *Client) VolumeChapters(ctx context.Context, volume Volume) ([]Chapter, error) {
+func (c *Client) VolumeChapters(ctx context.Context, volume mangadata.Volume) ([]mangadata.Chapter, error) {
 	return c.provider.VolumeChapters(ctx, volume)
 }
 
 // ChapterPages gets pages of the given chapter.
-func (c *Client) ChapterPages(ctx context.Context, chapter Chapter) ([]Page, error) {
+func (c *Client) ChapterPages(ctx context.Context, chapter mangadata.Chapter) ([]mangadata.Page, error) {
 	return c.provider.ChapterPages(ctx, chapter)
 }
 
@@ -138,7 +141,7 @@ const (
 // It will return resulting chapter path joined with DownloadOptions.Directory
 func (c *Client) DownloadChapter(
 	ctx context.Context,
-	chapter Chapter,
+	chapter mangadata.Chapter,
 	options DownloadOptions,
 ) (DownloadedChapter, error) {
 	c.logger.Log(fmt.Sprintf("Downloading chapter %q as %s", chapter, options.Format))
@@ -184,15 +187,15 @@ func (c *Client) DownloadChapter(
 // and return error immediately.
 func (c *Client) DownloadPagesInBatch(
 	ctx context.Context,
-	pages []Page,
-) ([]PageWithImage, error) {
+	pages []mangadata.Page,
+) ([]mangadata.PageWithImage, error) {
 	if len(pages) == 0 {
 		return nil, fmt.Errorf("No pages provided for chapter")
 	}
 	c.logger.Log(fmt.Sprintf("Downloading %d pages", len(pages)))
 
 	g, ctx := errgroup.WithContext(ctx)
-	downloadedPages := make([]PageWithImage, len(pages))
+	downloadedPages := make([]mangadata.PageWithImage, len(pages))
 	for i, page := range pages {
 		g.Go(func() error {
 			c.logger.Log(fmt.Sprintf("Page #%03d: downloading", i+1))
@@ -216,9 +219,22 @@ func (c *Client) DownloadPagesInBatch(
 	return downloadedPages, nil
 }
 
+type pageWithImage struct {
+	mangadata.Page
+	image []byte
+}
+
+func (p *pageWithImage) Image() []byte {
+	return p.image
+}
+
+func (p *pageWithImage) SetImage(newImage []byte) {
+	p.image = newImage
+}
+
 // DownloadPage downloads a page contents (image).
-func (c *Client) DownloadPage(ctx context.Context, page Page) (PageWithImage, error) {
-	if withImage, ok := page.(PageWithImage); ok {
+func (c *Client) DownloadPage(ctx context.Context, page mangadata.Page) (mangadata.PageWithImage, error) {
+	if withImage, ok := page.(mangadata.PageWithImage); ok {
 		return withImage, nil
 	}
 
@@ -233,7 +249,7 @@ func (c *Client) DownloadPage(ctx context.Context, page Page) (PageWithImage, er
 	}, nil
 }
 
-func (c *Client) ReadChapter(ctx context.Context, path string, chapter Chapter, options ReadOptions) error {
+func (c *Client) ReadChapter(ctx context.Context, path string, chapter mangadata.Chapter, options ReadOptions) error {
 	c.logger.Log("Opening chapter with the default app")
 
 	err := open.Run(path)
@@ -254,14 +270,14 @@ func (c *Client) ComputeProviderFilename(provider ProviderInfo) string {
 	return c.options.ProviderNameTemplate(provider)
 }
 
-func (c *Client) ComputeMangaFilename(manga Manga) string {
+func (c *Client) ComputeMangaFilename(manga mangadata.Manga) string {
 	return c.options.MangaNameTemplate(c.String(), manga)
 }
 
-func (c *Client) ComputeVolumeFilename(volume Volume) string {
+func (c *Client) ComputeVolumeFilename(volume mangadata.Volume) string {
 	return c.options.VolumeNameTemplate(c.String(), volume)
 }
 
-func (c *Client) ComputeChapterFilename(chapter Chapter, format Format) string {
+func (c *Client) ComputeChapterFilename(chapter mangadata.Chapter, format Format) string {
 	return c.options.ChapterNameTemplate(c.String(), chapter) + format.Extension()
 }

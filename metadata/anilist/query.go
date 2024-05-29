@@ -1,4 +1,4 @@
-package libmangal
+package anilist
 
 // anilistQueryCommon common manga query used for getting manga by id or searching it by name
 const anilistQueryCommon = `

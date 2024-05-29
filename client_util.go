@@ -14,6 +14,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/luevano/libmangal/mangadata"
+	"github.com/luevano/libmangal/metadata"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/spf13/afero"
 )
@@ -49,7 +51,7 @@ func (c *Client) removeChapter(chapterPath string) error {
 
 func (c *Client) downloadChapterWithMetadata(
 	ctx context.Context,
-	chapter Chapter,
+	chapter mangadata.Chapter,
 	options DownloadOptions,
 	existsFunc pathExistsFunc,
 ) (DownloadedChapter, error) {
@@ -126,9 +128,9 @@ func (c *Client) downloadChapterWithMetadata(
 		}
 	}
 
-	skip := options.SkipSeriesJSONIfOngoing && manga.Metadata().Status == MangaStatusReleasing
+	skip := options.SkipSeriesJSONIfOngoing && manga.Metadata().Status == metadata.StatusReleasing
 	if options.WriteSeriesJSON && !skip {
-		path := filepath.Join(seriesJSONDir, filenameSeriesJSON)
+		path := filepath.Join(seriesJSONDir, metadata.FilenameSeriesJSON)
 		exists, err := existsFunc(path)
 		if err != nil {
 			return DownloadedChapter{}, err
@@ -143,7 +145,7 @@ func (c *Client) downloadChapterWithMetadata(
 
 			err = c.writeSeriesJSON(manga, file)
 			if err != nil && options.Strict {
-				return DownloadedChapter{}, MetadataError{err}
+				return DownloadedChapter{}, metadata.Error{err}
 			}
 			downChap.SeriesJSONStatus = DownloadStatusNew
 		} else {
@@ -152,7 +154,7 @@ func (c *Client) downloadChapterWithMetadata(
 	}
 
 	if options.DownloadMangaCover {
-		path := filepath.Join(coverDir, filenameCoverJPG)
+		path := filepath.Join(coverDir, metadata.FilenameCoverJPG)
 		exists, err := existsFunc(path)
 		if err != nil {
 			return DownloadedChapter{}, err
@@ -167,7 +169,7 @@ func (c *Client) downloadChapterWithMetadata(
 
 			err = c.downloadMangaImage(ctx, manga, mangaImageCover, file)
 			if err != nil && options.Strict {
-				return DownloadedChapter{}, MetadataError{err}
+				return DownloadedChapter{}, metadata.Error{err}
 			}
 			downChap.CoverStatus = DownloadStatusNew
 		} else {
@@ -176,7 +178,7 @@ func (c *Client) downloadChapterWithMetadata(
 	}
 
 	if options.DownloadMangaBanner {
-		path := filepath.Join(bannerDir, filenameBannerJPG)
+		path := filepath.Join(bannerDir, metadata.FilenameBannerJPG)
 		exists, err := existsFunc(path)
 		if err != nil {
 			return DownloadedChapter{}, err
@@ -191,7 +193,7 @@ func (c *Client) downloadChapterWithMetadata(
 
 			err = c.downloadMangaImage(ctx, manga, mangaImageBanner, file)
 			if err != nil && options.Strict {
-				return DownloadedChapter{}, MetadataError{err}
+				return DownloadedChapter{}, metadata.Error{err}
 			}
 			downChap.BannerStatus = DownloadStatusNew
 		} else {
@@ -205,7 +207,7 @@ func (c *Client) downloadChapterWithMetadata(
 // downloadChapter is a helper function for DownloadChapter
 func (c *Client) downloadChapter(
 	ctx context.Context,
-	chapter Chapter,
+	chapter mangadata.Chapter,
 	path string,
 	options DownloadOptions,
 ) error {
@@ -268,9 +270,18 @@ func (c *Client) downloadChapter(
 
 		return c.saveZIP(downloadedPages, file)
 	case FormatCBZ:
-		var comicInfoXML *ComicInfoXML
+		var comicInfoXML *metadata.ComicInfoXML
 		if options.WriteComicInfoXML {
-			ciXML, err := c.getComicInfoXML(chapter)
+			mangaChapter := chapter.Info()
+			metaChapter := metadata.Chapter{
+				Title:           mangaChapter.Title,
+				URL:             mangaChapter.URL,
+				Number:          mangaChapter.Number,
+				Date:            mangaChapter.Date,
+				ScanlationGroup: mangaChapter.ScanlationGroup,
+				Pages:           len(downloadedPages),
+			}
+			ciXML, err := c.getComicInfoXML(chapter, metaChapter)
 			if err != nil && options.Strict {
 				return err
 			}
@@ -316,23 +327,23 @@ func (c *Client) downloadChapter(
 //
 // The metadata that it uses as fallback could be set by the provider,
 // by the client or by libmangal (when no metadata is found it searches for it).
-func (c *Client) getComicInfoXML(chapter Chapter) (ComicInfoXML, error) {
-	withComicInfoXML, ok := chapter.(ChapterWithComicInfoXML)
+func (c *Client) getComicInfoXML(mangaChapter mangadata.Chapter, metaChapter metadata.Chapter) (metadata.ComicInfoXML, error) {
+	withComicInfoXML, ok := mangaChapter.(mangadata.ChapterWithComicInfoXML)
 	if ok {
 		comicInfo, found, err := withComicInfoXML.ComicInfoXML()
 		if err != nil {
-			return ComicInfoXML{}, err
+			return metadata.ComicInfoXML{}, err
 		}
 		if found {
 			return comicInfo, nil
 		}
 	}
-	return chapter.Volume().Manga().Metadata().ComicInfoXML(chapter), nil
+	return mangaChapter.Volume().Manga().Metadata().ComicInfoXML(metaChapter), nil
 }
 
 // savePDF saves pages in FormatPDF
 func (c *Client) savePDF(
-	pages []PageWithImage,
+	pages []mangadata.PageWithImage,
 	out io.Writer,
 ) error {
 	c.logger.Log(fmt.Sprintf("Saving %d pages as PDF", len(pages)))
@@ -348,10 +359,10 @@ func (c *Client) savePDF(
 
 // saveCBZ saves pages in FormatCBZ
 func (c *Client) saveCBZ(
-	pages []PageWithImage,
+	pages []mangadata.PageWithImage,
 	out io.Writer,
-	comicInfoXml *ComicInfoXML,
-	options ComicInfoXMLOptions,
+	comicInfoXml *metadata.ComicInfoXML,
+	options metadata.ComicInfoXMLOptions,
 ) error {
 	c.logger.Log(fmt.Sprintf("Saving %d pages as CBZ", len(pages)))
 
@@ -375,15 +386,13 @@ func (c *Client) saveCBZ(
 	}
 
 	if comicInfoXml != nil {
-		wrapper := comicInfoXml.wrapper(options)
-		wrapper.PageCount = len(pages)
-		marshalled, err := wrapper.marshal()
+		marshalled, err := comicInfoXml.Marshal(options)
 		if err != nil {
 			return err
 		}
 
 		writer, err := zipWriter.CreateHeader(&zip.FileHeader{
-			Name:     filenameComicInfoXML,
+			Name:     metadata.FilenameComicInfoXML,
 			Method:   zip.Store,
 			Modified: time.Now(),
 		})
@@ -401,7 +410,7 @@ func (c *Client) saveCBZ(
 }
 
 func (c *Client) saveTAR(
-	pages []PageWithImage,
+	pages []mangadata.PageWithImage,
 	out io.Writer,
 ) error {
 	c.logger.Log(fmt.Sprintf("Saving %d pages as TAR", len(pages)))
@@ -431,7 +440,7 @@ func (c *Client) saveTAR(
 }
 
 func (c *Client) saveTARGZ(
-	pages []PageWithImage,
+	pages []mangadata.PageWithImage,
 	out io.Writer,
 ) error {
 	c.logger.Log(fmt.Sprintf("Bundling TAR into GZIP"))
@@ -443,7 +452,7 @@ func (c *Client) saveTARGZ(
 }
 
 func (c *Client) saveZIP(
-	pages []PageWithImage,
+	pages []mangadata.PageWithImage,
 	out io.Writer,
 ) error {
 	c.logger.Log(fmt.Sprintf("Saving %d pages as ZIP", len(pages)))
@@ -475,7 +484,7 @@ func (c *Client) saveZIP(
 // For example this can be either banner image or cover image.
 //
 // Manga is required to set Referer header.
-func (c *Client) downloadMangaImage(ctx context.Context, manga Manga, mangaImage mangaImage, out io.Writer) error {
+func (c *Client) downloadMangaImage(ctx context.Context, manga mangadata.Manga, mangaImage mangaImage, out io.Writer) error {
 	c.logger.Log(fmt.Sprintf("Downloading %s image", mangaImage))
 	var URL string
 	switch mangaImage {
@@ -519,7 +528,7 @@ func (c *Client) downloadMangaImage(ctx context.Context, manga Manga, mangaImage
 	return err
 }
 
-func getCover(manga Manga) string {
+func getCover(manga mangadata.Manga) string {
 	cover := manga.Info().Cover
 	if cover != "" {
 		return cover
@@ -530,7 +539,7 @@ func getCover(manga Manga) string {
 	return cover
 }
 
-func getBanner(manga Manga) string {
+func getBanner(manga mangadata.Manga) string {
 	banner := manga.Info().Banner
 	if banner != "" {
 		return banner
@@ -548,12 +557,12 @@ func getBanner(manga Manga) string {
 //
 // The metadata that it uses as fallback could be set by the provider,
 // by the client or by libmangal (when no metadata is found it searches for it).
-func (c *Client) getSeriesJSON(manga Manga) (SeriesJSON, error) {
-	withSeriesJSON, ok := manga.(MangaWithSeriesJSON)
+func (c *Client) getSeriesJSON(manga mangadata.Manga) (metadata.SeriesJSON, error) {
+	withSeriesJSON, ok := manga.(mangadata.MangaWithSeriesJSON)
 	if ok {
 		seriesJSON, found, err := withSeriesJSON.SeriesJSON()
 		if err != nil {
-			return SeriesJSON{}, err
+			return metadata.SeriesJSON{}, err
 		}
 		if found {
 			return seriesJSON, nil
@@ -563,15 +572,15 @@ func (c *Client) getSeriesJSON(manga Manga) (SeriesJSON, error) {
 	return manga.Metadata().SeriesJSON(), nil
 }
 
-func (c *Client) writeSeriesJSON(manga Manga, out io.Writer) error {
-	c.logger.Log(fmt.Sprintf("Writing %s", filenameSeriesJSON))
+func (c *Client) writeSeriesJSON(manga mangadata.Manga, out io.Writer) error {
+	c.logger.Log(fmt.Sprintf("Writing %s", metadata.FilenameSeriesJSON))
 
 	seriesJSON, err := c.getSeriesJSON(manga)
 	if err != nil {
 		return err
 	}
 
-	marshalled, err := seriesJSON.wrapper().marshal()
+	marshalled, err := seriesJSON.Marshal()
 	if err != nil {
 		return err
 	}
@@ -580,7 +589,7 @@ func (c *Client) writeSeriesJSON(manga Manga, out io.Writer) error {
 	return err
 }
 
-func (c *Client) markChapterAsRead(ctx context.Context, chapter Chapter) error {
+func (c *Client) markChapterAsRead(ctx context.Context, chapter mangadata.Chapter) error {
 	chapterMangaInfo := chapter.Volume().Manga().Info()
 
 	var titleToSearch string

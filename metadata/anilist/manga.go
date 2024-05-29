@@ -1,9 +1,13 @@
-package libmangal
+package anilist
 
-import "strings"
+import (
+	"strings"
 
-// AnilistManga is the Anilist manga metadata.
-type AnilistManga struct {
+	"github.com/luevano/libmangal/metadata"
+)
+
+// Manga is the Anilist manga metadata.
+type Manga struct {
 	// Title of the manga
 	Title struct {
 		// English is the english title of the manga.
@@ -65,9 +69,9 @@ type AnilistManga struct {
 		} `json:"edges"`
 	} `json:"staff"`
 	// StartDate is the date the manga started publishing.
-	StartDate Date `json:"startDate" jsonschema:"description=Date the manga started publishing."`
+	StartDate metadata.Date `json:"startDate" jsonschema:"description=Date the manga started publishing."`
 	// EndDate is the date the manga ended publishing.
-	EndDate Date `json:"endDate" jsonschema:"description=Date the manga ended publishing."`
+	EndDate metadata.Date `json:"endDate" jsonschema:"description=Date the manga ended publishing."`
 	// Synonyms are the synonyms of the manga (Alternative titles).
 	Synonyms []string `json:"synonyms" jsonschema:"description=Synonyms of the manga (Alternative titles)."`
 	// Status is the status of the manga. (FINISHED, RELEASING, NOT_YET_RELEASED, CANCELLED)
@@ -86,7 +90,7 @@ type AnilistManga struct {
 	} `json:"externalLinks" jsonschema:"description=External links related to the manga."`
 }
 
-func (a AnilistManga) String() string {
+func (a Manga) String() string {
 	if a.Title.English != "" {
 		return a.Title.English
 	}
@@ -96,7 +100,7 @@ func (a AnilistManga) String() string {
 	return a.Title.Native
 }
 
-func (a AnilistManga) Metadata() *Metadata {
+func (a Manga) Metadata() *metadata.Metadata {
 	coverImage := a.CoverImage.ExtraLarge
 	if coverImage == "" {
 		coverImage = a.CoverImage.Large
@@ -140,7 +144,7 @@ func (a AnilistManga) Metadata() *Metadata {
 		}
 	}
 
-	return &Metadata{
+	return &metadata.Metadata{
 		EnglishTitle:    a.Title.English,
 		RomajiTitle:     a.Title.Romaji,
 		NativeTitle:     a.Title.Native,
@@ -158,7 +162,7 @@ func (a AnilistManga) Metadata() *Metadata {
 		Letterers:       letterers,
 		StartDate:       a.StartDate,
 		EndDate:         a.EndDate,
-		Status:          MangaStatus(a.Status),
+		Status:          metadata.Status(a.Status),
 		Country:         a.Country,
 		Chapters:        a.Chapters,
 		URL:             a.SiteURL,

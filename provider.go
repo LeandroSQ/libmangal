@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/luevano/libmangal/logger"
+	"github.com/luevano/libmangal/mangadata"
 	"golang.org/x/mod/semver"
 )
 
@@ -74,7 +76,7 @@ type Provider interface {
 	Info() ProviderInfo
 
 	// SetLogger sets logger to use for this provider.
-	SetLogger(*Logger)
+	SetLogger(*logger.Logger)
 
 	// SearchMangas searches for mangas with the given query.
 	//
@@ -82,37 +84,37 @@ type Provider interface {
 	SearchMangas(
 		ctx context.Context,
 		query string,
-	) ([]Manga, error)
+	) ([]mangadata.Manga, error)
 
 	// MangaVolumes gets volumes of the manga.
 	//
 	// Implementation should utilize given logger.
 	MangaVolumes(
 		ctx context.Context,
-		manga Manga,
-	) ([]Volume, error)
+		manga mangadata.Manga,
+	) ([]mangadata.Volume, error)
 
 	// VolumeChapters gets chapters of the given volume.
 	//
 	// Implementation should utilize given logger.
 	VolumeChapters(
 		ctx context.Context,
-		volume Volume,
-	) ([]Chapter, error)
+		volume mangadata.Volume,
+	) ([]mangadata.Chapter, error)
 
 	// ChapterPages gets pages of the given chapter.
 	//
 	// Implementation should utilize given logger
 	ChapterPages(
 		ctx context.Context,
-		chapter Chapter,
-	) ([]Page, error)
+		chapter mangadata.Chapter,
+	) ([]mangadata.Page, error)
 
 	// GetPageImage gets raw image contents of the given page.
 	//
 	// Implementation should utilize given logger.
 	GetPageImage(
 		ctx context.Context,
-		page Page,
+		page mangadata.Page,
 	) ([]byte, error)
 }

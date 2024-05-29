@@ -1,4 +1,4 @@
-package libmangal
+package anilist
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 	"net/http"
 )
 
-type AnilistLoginCredentials struct {
+type LoginCredentials struct {
 	ID     string
 	Secret string
 	Code   string
@@ -26,7 +26,7 @@ func (a *Anilist) Logout() error {
 // Authorize will obtain Anilist token for API requests.
 func (a *Anilist) Authorize(
 	ctx context.Context,
-	credentials AnilistLoginCredentials,
+	credentials LoginCredentials,
 ) error {
 	a.logger.Log("logging in to Anilist")
 
@@ -39,7 +39,7 @@ func (a *Anilist) Authorize(
 		{"code", credentials.Code},
 	} {
 		if t.value == "" {
-			return AnilistError{fmt.Errorf("%s is empty", t.name)}
+			return Error{fmt.Errorf("%s is empty", t.name)}
 		}
 	}
 
@@ -51,7 +51,7 @@ func (a *Anilist) Authorize(
 		"redirect_uri":  "https://anilist.co/api/v2/oauth/pin",
 	})
 	if err != nil {
-		return AnilistError{err}
+		return Error{err}
 	}
 
 	request, err := http.NewRequestWithContext(
@@ -61,7 +61,7 @@ func (a *Anilist) Authorize(
 		bytes.NewBuffer(body),
 	)
 	if err != nil {
-		return AnilistError{err}
+		return Error{err}
 	}
 
 	request.Header.Set("Content-Type", "application/json")
@@ -69,12 +69,12 @@ func (a *Anilist) Authorize(
 
 	response, err := a.options.HTTPClient.Do(request)
 	if err != nil {
-		return AnilistError{err}
+		return Error{err}
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return AnilistError{errors.New(response.Status)}
+		return Error{errors.New(response.Status)}
 	}
 
 	var authResponse struct {
@@ -83,7 +83,7 @@ func (a *Anilist) Authorize(
 
 	err = json.NewDecoder(response.Body).Decode(&authResponse)
 	if err != nil {
-		return AnilistError{err}
+		return Error{err}
 	}
 
 	if err := a.options.AccessTokenStore.Set(anilistStoreAccessCodeStoreKey, authResponse.AccessToken); err != nil {
