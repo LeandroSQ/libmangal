@@ -18,9 +18,11 @@ import (
 	"github.com/spf13/afero"
 )
 
+type mangaImage string
+
 const (
-	mangaCover  = "cover"
-	mangaBanner = "banner"
+	mangaImageCover  mangaImage = "cover"
+	mangaImageBanner mangaImage = "banner"
 )
 
 type pathExistsFunc func(string) (bool, error)
@@ -88,14 +90,18 @@ func (c *Client) downloadChapterWithMetadata(
 	}
 
 	manga := chapter.Volume().Manga()
-	anilistManga, found, err := c.getAnilistManga(ctx, manga)
-	if err != nil {
-		return DownloadedChapter{}, err
-	}
-	if !found {
-		msg := fmt.Sprintf("Couldn't find associated anilist manga for %q", manga.Info().Title)
-		c.logger.Log(msg)
-		return DownloadedChapter{}, fmt.Errorf(msg)
+	// TODO: allow for unavailable anilist metadata
+	if manga.Metadata() == nil {
+		anilistManga, found, err := c.Anilist().FindClosestMangaByManga(ctx, manga)
+		if err != nil {
+			return DownloadedChapter{}, err
+		}
+		if !found {
+			msg := fmt.Sprintf("Couldn't find associated anilist manga for %q", manga.Info().Title)
+			c.logger.Log(msg)
+			return DownloadedChapter{}, fmt.Errorf(msg)
+		}
+		manga.SetMetadata(anilistManga.Metadata())
 	}
 
 	// Data about downloaded chapter
@@ -109,7 +115,7 @@ func (c *Client) downloadChapterWithMetadata(
 	}
 
 	if !chapterExists || !options.SkipIfExists {
-		err = c.downloadChapter(ctx, chapter, anilistManga, chapterPath, options)
+		err = c.downloadChapter(ctx, chapter, chapterPath, options)
 		if err != nil {
 			return DownloadedChapter{}, err
 		}
@@ -120,7 +126,7 @@ func (c *Client) downloadChapterWithMetadata(
 		}
 	}
 
-	skip := options.SkipSeriesJSONIfOngoing && anilistManga.Status == "RELEASING"
+	skip := options.SkipSeriesJSONIfOngoing && manga.Metadata().Status == MangaStatusReleasing
 	if options.WriteSeriesJSON && !skip {
 		path := filepath.Join(seriesJSONDir, filenameSeriesJSON)
 		exists, err := existsFunc(path)
@@ -135,7 +141,7 @@ func (c *Client) downloadChapterWithMetadata(
 			}
 			defer file.Close()
 
-			err = c.writeSeriesJSON(manga, anilistManga, file)
+			err = c.writeSeriesJSON(manga, file)
 			if err != nil && options.Strict {
 				return DownloadedChapter{}, MetadataError{err}
 			}
@@ -159,7 +165,7 @@ func (c *Client) downloadChapterWithMetadata(
 			}
 			defer file.Close()
 
-			err = c.downloadCoverBanner(ctx, manga, mangaCover, anilistManga, file)
+			err = c.downloadMangaImage(ctx, manga, mangaImageCover, file)
 			if err != nil && options.Strict {
 				return DownloadedChapter{}, MetadataError{err}
 			}
@@ -183,7 +189,7 @@ func (c *Client) downloadChapterWithMetadata(
 			}
 			defer file.Close()
 
-			err = c.downloadCoverBanner(ctx, manga, mangaBanner, anilistManga, file)
+			err = c.downloadMangaImage(ctx, manga, mangaImageBanner, file)
 			if err != nil && options.Strict {
 				return DownloadedChapter{}, MetadataError{err}
 			}
@@ -200,7 +206,6 @@ func (c *Client) downloadChapterWithMetadata(
 func (c *Client) downloadChapter(
 	ctx context.Context,
 	chapter Chapter,
-	anilistManga AnilistManga,
 	path string,
 	options DownloadOptions,
 ) error {
@@ -265,7 +270,7 @@ func (c *Client) downloadChapter(
 	case FormatCBZ:
 		var comicInfoXML *ComicInfoXML
 		if options.WriteComicInfoXML {
-			ciXML, err := c.getComicInfoXML(chapter, anilistManga)
+			ciXML, err := c.getComicInfoXML(chapter)
 			if err != nil && options.Strict {
 				return err
 			}
@@ -307,11 +312,11 @@ func (c *Client) downloadChapter(
 // getComicInfoXML gets the ComicInfoXML for the chapter.
 //
 // It tries to check if chapter implements ChapterWithComicInfoXML
-// in case of failure it will fetch manga from anilist.
-func (c *Client) getComicInfoXML(
-	chapter Chapter,
-	anilistManga AnilistManga,
-) (ComicInfoXML, error) {
+// in case of failure it will use the provided metadata.
+//
+// The metadata that it uses as fallback could be set by the provider,
+// by the client or by libmangal (when no metadata is found it searches for it).
+func (c *Client) getComicInfoXML(chapter Chapter) (ComicInfoXML, error) {
 	withComicInfoXML, ok := chapter.(ChapterWithComicInfoXML)
 	if ok {
 		comicInfo, found, err := withComicInfoXML.ComicInfoXML()
@@ -322,8 +327,7 @@ func (c *Client) getComicInfoXML(
 			return comicInfo, nil
 		}
 	}
-
-	return anilistManga.ComicInfoXML(chapter), nil
+	return chapter.Volume().Manga().Metadata().ComicInfoXML(chapter), nil
 }
 
 // savePDF saves pages in FormatPDF
@@ -466,58 +470,29 @@ func (c *Client) saveZIP(
 	return nil
 }
 
-// downloadCoverBanner will download a cover or banner.
-func (c *Client) downloadCoverBanner(ctx context.Context, manga Manga, coverBanner string, anilistManga AnilistManga, out io.Writer) error {
-	c.logger.Log(fmt.Sprintf("Downloading %s", coverBanner))
-
-	cbURL, ok, err := c.getCoverBannerURL(manga, coverBanner, anilistManga)
-	if err != nil {
-		c.logger.Log(err.Error())
-		return err
-	}
-	if !ok {
-		msg := fmt.Sprintf("%s url not found", coverBanner)
-		c.logger.Log(msg)
-		return errors.New(msg)
-	}
-
-	c.logger.Log(fmt.Sprintf("%s url: %s", coverBanner, cbURL))
-	return c.downloadMangaImage(ctx, manga, cbURL, out)
-}
-
-func (c *Client) getCoverBannerURL(manga Manga, coverBanner string, anilistManga AnilistManga) (string, bool, error) {
-	var mangaURL string
-	var anilistURLs []string
-	switch coverBanner {
-	case mangaCover:
-		mangaURL = manga.Info().Cover
-		anilistURLs = []string{
-			anilistManga.CoverImage.ExtraLarge,
-			anilistManga.CoverImage.Large,
-			anilistManga.CoverImage.Medium,
-		}
-	case mangaBanner:
-		mangaURL = manga.Info().Banner
-		anilistURLs = []string{anilistManga.BannerImage}
-	}
-
-	if mangaURL != "" {
-		return mangaURL, true, nil
-	}
-	for _, anilistURL := range anilistURLs {
-		if anilistURL != "" {
-			return anilistURL, true, nil
-		}
-	}
-	return "", false, nil
-}
-
 // downloadMangaImage will download image related to manga.
 //
 // For example this can be either banner image or cover image.
 //
 // Manga is required to set Referer header.
-func (c *Client) downloadMangaImage(ctx context.Context, manga Manga, URL string, out io.Writer) error {
+func (c *Client) downloadMangaImage(ctx context.Context, manga Manga, mangaImage mangaImage, out io.Writer) error {
+	c.logger.Log(fmt.Sprintf("Downloading %s image", mangaImage))
+	var URL string
+	switch mangaImage {
+	case mangaImageCover:
+		URL = getCover(manga)
+	case mangaImageBanner:
+		URL = getBanner(manga)
+	default:
+		return fmt.Errorf("unknown manga image type %q to download", mangaImage)
+	}
+	if URL == "" {
+		msg := fmt.Sprintf("%s image url not found", mangaImage)
+		c.logger.Log(msg)
+		return errors.New(msg)
+	}
+	c.logger.Log(fmt.Sprintf("%s image url: %s", mangaImage, URL))
+
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, URL, nil)
 	if err != nil {
 		return err
@@ -544,11 +519,36 @@ func (c *Client) downloadMangaImage(ctx context.Context, manga Manga, URL string
 	return err
 }
 
+func getCover(manga Manga) string {
+	cover := manga.Info().Cover
+	if cover != "" {
+		return cover
+	}
+	if manga.Metadata() != nil {
+		cover = manga.Metadata().CoverImage
+	}
+	return cover
+}
+
+func getBanner(manga Manga) string {
+	banner := manga.Info().Banner
+	if banner != "" {
+		return banner
+	}
+	if manga.Metadata() != nil {
+		banner = manga.Metadata().BannerImage
+	}
+	return banner
+}
+
 // getSeriesJSON gets SeriesJSON from the chapter.
 //
 // It tries to check if chapter manga implements MangaWithSeriesJSON
-// in case of failure it will fetch manga from anilist.
-func (c *Client) getSeriesJSON(manga Manga, anilistManga AnilistManga) (SeriesJSON, error) {
+// in case of failure it will use the provided metadata.
+//
+// The metadata that it uses as fallback could be set by the provider,
+// by the client or by libmangal (when no metadata is found it searches for it).
+func (c *Client) getSeriesJSON(manga Manga) (SeriesJSON, error) {
 	withSeriesJSON, ok := manga.(MangaWithSeriesJSON)
 	if ok {
 		seriesJSON, found, err := withSeriesJSON.SeriesJSON()
@@ -560,22 +560,13 @@ func (c *Client) getSeriesJSON(manga Manga, anilistManga AnilistManga) (SeriesJS
 		}
 	}
 
-	return anilistManga.SeriesJSON(), nil
+	return manga.Metadata().SeriesJSON(), nil
 }
 
-func (c *Client) getAnilistManga(ctx context.Context, manga Manga) (AnilistManga, bool, error) {
-	anilistManga, err := manga.AnilistManga()
-	if err == nil {
-		return anilistManga, true, nil
-	}
-
-	return c.Anilist().FindClosestMangaByManga(ctx, manga)
-}
-
-func (c *Client) writeSeriesJSON(manga Manga, anilistManga AnilistManga, out io.Writer) error {
+func (c *Client) writeSeriesJSON(manga Manga, out io.Writer) error {
 	c.logger.Log(fmt.Sprintf("Writing %s", filenameSeriesJSON))
 
-	seriesJSON, err := c.getSeriesJSON(manga, anilistManga)
+	seriesJSON, err := c.getSeriesJSON(manga)
 	if err != nil {
 		return err
 	}

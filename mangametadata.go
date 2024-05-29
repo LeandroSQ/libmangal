@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"strings"
+	"time"
 )
 
 const (
@@ -14,16 +16,272 @@ const (
 	filenameBannerJPG    = "banner.jpg"
 )
 
+type MangaStatus string
+
+const (
+	MangaStatusFinished       MangaStatus = "FINISHED"
+	MangaStatusReleasing      MangaStatus = "RELEASING"
+	MangaStatusNotYetReleased MangaStatus = "NOT_YET_RELEASED"
+	MangaStatusCancelled      MangaStatus = "CANCELLED"
+	MangaStatusHiatus         MangaStatus = "HIATUS"
+)
+
+// Metadata is the general metadata information about a manga.
+//
+// In its most basic form, it's just the metadata that is available from the provider.
+// It contains the necessary fields to build the series.json and ComicInfo.xml files.
+type Metadata struct {
+	// English is the english title of the manga.
+	EnglishTitle string `json:"english_title"`
+
+	// Romaji is the romanized title of the manga.
+	RomajiTitle string `json:"romaji_title"`
+
+	// Native is the native title of the manga. (Usually in kanji)
+	NativeTitle string `json:"native_title"`
+
+	// AlternateTitles that are known, in order of relevance.
+	AlternateTitles []string `json:"alternate_titles"`
+
+	// Score is the community score for the manga.
+	//
+	// Accepted values are between 0.0 and 5.0.
+	Score float32 `json:"score"`
+
+	// Description is the description/summary for the manga.
+	Description string `json:"description"`
+
+	// CoverImage is the cover image of the manga.
+	CoverImage string `json:"cover_image"`
+
+	// BannerImage is the banner image of the manga.
+	BannerImage string `json:"banner_image"`
+
+	// Tags is the list of tags associated with the manga.
+	Tags []string `json:"tags"`
+
+	// Genres is the list of genres associated with the manga.
+	Genres []string `json:"genres"`
+
+	// Characters is the list of characters, in order of relevance.
+	Characters []string `json:"characters"`
+
+	// Authors (or Writers) is the list of authors, in order of relevance.
+	// Must contain at least one artist.
+	Authors []string `json:"authors"`
+
+	// Artists is the list of artists, in order of relevance.
+	Artists []string `json:"artists"`
+
+	// Translators is the list of translators, in order of relevance.
+	Translators []string `json:"translators"`
+
+	// Letterers is the list of letterers, in order of relevance.
+	Letterers []string `json:"letterers"`
+
+	// StartDate is the date the manga started publishing.
+	StartDate Date `json:"start_date"`
+
+	// EndDate is the date the manga ended publishing.
+	EndDate Date `json:"end_date"`
+
+	// Publisher of the manga.
+	Publisher string `json:"publisher"`
+
+	// Current status of the manga.
+	//
+	// One of: FINISHED, RELEASING, NOT_YET_RELEASED, CANCELLED, HIATUS
+	Status MangaStatus `json:"status"`
+
+	// Format the original publication.
+	//
+	// For example: TBP, HC, Web, Digital, etc..
+	Format string `json:"format"`
+
+	// Country of origin of the manga. ISO 3166-1 alpha-2 country code.
+	Country string `json:"country"`
+
+	// Chapter count until this point.
+	Chapters int `json:"chapters"`
+
+	// Extra notes to be added.
+	Notes string `json:"notes"`
+
+	// URL is the source URL of the metadata.
+	URL string `json:"url"`
+
+	// IDAl is the Anilist ID.
+	IDAl int `json:"id_al"`
+
+	// IDMal is the MyAnimeList ID.
+	IDMal int `json:"id_mal"`
+}
+
+// String representation should be something short and informative.
+//
+// Returns representation in the style of "Title (Year) [IDType-ID]",
+// if Year or ID is missing, then they're omitted.
+func (m *Metadata) String() string {
+	title := m.Title()
+	year := m.StartDate.Year
+	idSource := m.IDSource()
+	id := m.ID()
+
+	var yearStr string
+	if year != 0 {
+		yearStr = fmt.Sprintf(" (%d)", year)
+	}
+	var idStr string
+	if id != 0 {
+		idStr = fmt.Sprintf(" [%sid-%d]", idSource, id)
+	}
+
+	return fmt.Sprintf("%s%s%s", title, yearStr, idStr)
+}
+
+func (m *Metadata) Title() string {
+	if m.EnglishTitle != "" {
+		return m.EnglishTitle
+	}
+	if m.RomajiTitle != "" {
+		return m.RomajiTitle
+	}
+	return m.NativeTitle
+}
+
+// ID of the external metadata.
+func (m *Metadata) ID() int {
+	// The anilist id should never be 0 (for now) but just in case
+	if m.IDAl != 0 {
+		return m.IDAl
+	}
+	return m.IDMal
+}
+
+// TODO: placeholder, need to better handle this
+// once the amount of external metadata ids grow
+//
+// IDSource get the type of the external metadata ID.
+//
+// For example "al" for Anilist or "mal" for MyAnimeList.
+func (m *Metadata) IDSource() string {
+	if m.IDAl != 0 {
+		return "al"
+	}
+	return "mal"
+}
+
+func (m *Metadata) SeriesJSON() SeriesJSON {
+	var status string
+	// TODO: need to better handle these statuses,
+	// series.json only supports "ended" and "continuing"
+	switch m.Status {
+	case MangaStatusFinished:
+		status = "Ended"
+	case MangaStatusReleasing:
+		status = "Continuing"
+	default:
+		status = "Unknown"
+	}
+
+	// Format should be:
+	// "November 2011 - July 2016"
+	// "June 2021 - Present"
+	var pubEndDate string
+	if m.EndDate != (Date{}) {
+		pubEndDate = fmt.Sprintf(
+			"%s %d",
+			time.Month(m.EndDate.Month).String(),
+			m.EndDate.Year)
+	} else {
+		pubEndDate = "Present"
+	}
+
+	publicationRun := fmt.Sprintf(
+		"%s %d - %s",
+		time.Month(m.StartDate.Month).String(),
+		m.StartDate.Year,
+		pubEndDate,
+	)
+
+	// TODO: clean the description at least for one of the fields?
+	return SeriesJSON{
+		Type:                 "comicSeries",
+		Name:                 m.Title(),
+		DescriptionFormatted: m.Description,
+		DescriptionText:      m.Description,
+		Status:               status,
+		Year:                 m.StartDate.Year,
+		ComicImage:           m.CoverImage,
+		Publisher:            m.Publisher,
+		ComicID:              m.ID(),
+		BookType:             "Print",
+		TotalIssues:          m.Chapters,
+		PublicationRun:       publicationRun,
+	}
+}
+
+func (m *Metadata) ComicInfoXML(chapter Chapter) ComicInfoXML {
+	var date Date
+	// If no chapter date is defined, use Metadata.StartDate
+	if chapter.Info().Date != (Date{}) {
+		date = chapter.Info().Date
+	} else {
+		date = m.StartDate
+	}
+
+	// If ScanlationGroup is set, use it as the only "translators" instead of Anilist Translators list
+	translators := m.Translators
+	if chapter.Info().ScanlationGroup != "" {
+		translators = []string{chapter.Info().ScanlationGroup}
+	}
+
+	// TODO: fill missing
+	// TODO: use scanlation group for ScanInformation
+	return ComicInfoXML{
+		Title:           chapter.Info().Title,
+		Series:          m.Title(),
+		Number:          chapter.Info().Number,
+		Web:             chapter.Info().URL,
+		Genres:          m.Genres,
+		Summary:         m.Description,
+		Count:           m.Chapters,
+		Characters:      m.Characters,
+		Year:            date.Year,
+		Month:           date.Month,
+		Day:             date.Day,
+		Publisher:       m.Publisher,
+		LanguageISO:     "",
+		StoryArc:        "",
+		StoryArcNumber:  0,
+		ScanInformation: "",
+		AgeRating:       "",
+		CommunityRating: m.Score,
+		Review:          "",
+		GTIN:            "",
+		Format:          m.Format,
+		Writers:         m.Authors,
+		Pencillers:      m.Artists,
+		Letterers:       m.Letterers,
+		Translators:     translators,
+		Tags:            m.Tags,
+		Notes:           m.Notes,
+	}
+}
+
 // ComicInfoXML contains metadata information about a comic book.
 // It is often used by comic book readers and management software
 // to organize and display information about comic books in a library or collection.
 type ComicInfoXML struct {
 	// Title of the book
 	Title string
+
 	// Series title of the series the book is part of.
 	Series string
+
 	// Number of the book in the series.
 	Number float32
+
 	// Web a URL pointing to a reference website for the book.
 	Web string
 
@@ -88,13 +346,13 @@ type ComicInfoXML struct {
 	// https://en.wikipedia.org/wiki/Global_Trade_Item_Number
 	GTIN string
 
-	// Writers people or organizations responsible for creating the scenario.
-	Writers []string
-
 	// Format the original publication's binding format for scanned physical books or presentation format for digital sources.
 	//
 	// "TBP", "HC", "Web", "Digital" are common designators.
 	Format string
+
+	// Writers people or organizations responsible for creating the scenario.
+	Writers []string
 
 	// Pencillers people or organizations responsible for drawing the art.
 	Pencillers []string
@@ -117,6 +375,7 @@ type ComicInfoXML struct {
 }
 
 func (c ComicInfoXML) wrapper(options ComicInfoXMLOptions) comicInfoXMLWrapper {
+	// TODO: Make Manga field configurable
 	wrapper := comicInfoXMLWrapper{
 		XmlnsXsd:   "http://www.w3.org/2001/XMLSchema",
 		XmlnsXsi:   "http://www.w3.org/2001/XMLSchema-instance",

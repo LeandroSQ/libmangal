@@ -1,18 +1,15 @@
 package libmangal
 
-import (
-	"fmt"
-	"strings"
-	"time"
-)
+import "strings"
 
+// AnilistManga is the Anilist manga metadata.
 type AnilistManga struct {
 	// Title of the manga
 	Title struct {
-		// Romaji is the romanized title of the manga.
-		Romaji string `json:"romaji" jsonschema:"description=Romanized title of the manga."`
 		// English is the english title of the manga.
 		English string `json:"english" jsonschema:"description=English title of the manga."`
+		// Romaji is the romanized title of the manga.
+		Romaji string `json:"romaji" jsonschema:"description=Romanized title of the manga."`
 		// Native is the native title of the manga. (Usually in kanji)
 		Native string `json:"native" jsonschema:"description=Native title of the manga. Usually in kanji."`
 	} `json:"title"`
@@ -81,8 +78,8 @@ type AnilistManga struct {
 	Chapters int `json:"chapters" jsonschema:"description=Amount of chapters the manga has when complete."`
 	// SiteURL is the url of the manga on Anilist.
 	SiteURL string `json:"siteUrl" jsonschema:"description=URL of the manga on AnilistSearch."`
-	// Country of origin of the manga.
-	Country string `json:"countryOfOrigin" jsonschema:"description=Country of origin of the manga."`
+	// Country of origin of the manga. ISO 3166-1 alpha-2 country code.
+	Country string `json:"countryOfOrigin" jsonschema:"description=Country of origin of the manga. ISO 3166-1 alpha-2 country code."`
 	// External urls related to the manga.
 	External []struct {
 		URL string `json:"url" jsonschema:"description=URL of the external link."`
@@ -93,94 +90,36 @@ func (a AnilistManga) String() string {
 	if a.Title.English != "" {
 		return a.Title.English
 	}
-
 	if a.Title.Romaji != "" {
 		return a.Title.Romaji
 	}
-
 	return a.Title.Native
 }
 
-func (a AnilistManga) Publisher() string {
-	var publisher string
-	for _, edge := range a.Staff.Edges {
-		// TODO: fix??? "role"??? I think Anilist doesn't provide publisher data.
-		if strings.Contains(edge.Role, "role") {
-			publisher = edge.Node.Name.Full
-			break
+func (a AnilistManga) Metadata() *Metadata {
+	coverImage := a.CoverImage.ExtraLarge
+	if coverImage == "" {
+		coverImage = a.CoverImage.Large
+	}
+	if coverImage == "" {
+		coverImage = a.CoverImage.Medium
+	}
+
+	tags := make([]string, 0)
+	for _, tag := range a.Tags {
+		// TODO: decide on a ranking treshold or make it configurable
+		if tag.Rank < 60 {
+			continue
 		}
-	}
-	return publisher
-}
-
-func (a AnilistManga) SeriesJSON() SeriesJSON {
-	var status string
-	switch a.Status {
-	case "FINISHED":
-		status = "Ended"
-	case "RELEASING":
-		status = "Continuing"
-	default:
-		status = "Unknown"
+		tags = append(tags, tag.Name)
 	}
 
-	// Format should be (according to mylar3 series.json schema):
-	// November 2011 - July 2016
-	// June 2021 - Present (when there is no EndDate, meaning it's still publishing)
-	var pubEndDate string
-	if a.EndDate != (Date{}) {
-		pubEndDate = fmt.Sprintf(
-			"%s %d",
-			time.Month(a.EndDate.Month).String(),
-			a.EndDate.Year)
-	} else {
-		pubEndDate = "Present"
-	}
-
-	publicationRun := fmt.Sprintf(
-		"%s %d - %s",
-		time.Month(a.StartDate.Month).String(),
-		a.StartDate.Year,
-		pubEndDate,
-	)
-
-	return SeriesJSON{
-		Type:                 "comicSeries",
-		Name:                 a.String(),
-		DescriptionFormatted: a.Description,
-		DescriptionText:      a.Description,
-		Status:               status,
-		Year:                 a.StartDate.Year,
-		ComicImage:           a.CoverImage.ExtraLarge,
-		Publisher:            a.Publisher(),
-		ComicID:              a.ID,
-		BookType:             "Print",
-		TotalIssues:          a.Chapters,
-		PublicationRun:       publicationRun,
-	}
-}
-
-func (a AnilistManga) ComicInfoXML(chapter Chapter) ComicInfoXML {
 	characters := make([]string, len(a.Characters.Nodes))
 	for i, node := range a.Characters.Nodes {
 		characters[i] = node.Name.Full
 	}
 
-	var (
-		date Date
-		writers,
-		pencillers,
-		letterers,
-		translators []string
-	)
-
-	// If no chapter date is supplied, use Anilist.StartDate
-	if chapter.Info().Date != (Date{}) {
-		date = chapter.Info().Date
-	} else {
-		date = a.StartDate
-	}
-
+	var writers, pencillers, letterers, translators []string
 	for _, edge := range a.Staff.Edges {
 		role := strings.ToLower(edge.Role)
 		name := edge.Node.Name.Full
@@ -201,48 +140,29 @@ func (a AnilistManga) ComicInfoXML(chapter Chapter) ComicInfoXML {
 		}
 	}
 
-	// If ScanlationGroup is set, use it as the only "translators" instead of Anilist Translators list
-	if chapter.Info().ScanlationGroup != "" {
-		translators = []string{chapter.Info().ScanlationGroup}
-	}
-
-	tags := make([]string, 0)
-	for _, tag := range a.Tags {
-		if tag.Rank < 60 {
-			continue
-		}
-
-		tags = append(tags, tag.Name)
-	}
-
-	// TODO: fill missing
-	return ComicInfoXML{
-		Title:           chapter.Info().Title,
-		Series:          a.String(), // c.Volume().Manga().Info().Title,
-		Number:          chapter.Info().Number,
-		Web:             chapter.Info().URL,
-		Genres:          a.Genres,
-		Summary:         a.Description,
-		Count:           a.Chapters,
-		Characters:      characters,
-		Year:            date.Year,
-		Month:           date.Month,
-		Day:             date.Day,
-		Publisher:       a.Publisher(),
-		LanguageISO:     "",
-		StoryArc:        "",
-		StoryArcNumber:  0,
-		ScanInformation: "",
-		AgeRating:       "",
-		CommunityRating: float32(a.AverageScore) / 20,
-		Review:          "",
-		GTIN:            "",
-		Writers:         writers,
-		Format:          "",
-		Pencillers:      pencillers,
-		Letterers:       letterers,
-		Translators:     translators,
+	return &Metadata{
+		EnglishTitle:    a.Title.English,
+		RomajiTitle:     a.Title.Romaji,
+		NativeTitle:     a.Title.Native,
+		AlternateTitles: a.Synonyms,
+		Score:           float32(a.AverageScore) / 20,
+		Description:     a.Description,
+		CoverImage:      coverImage,
+		BannerImage:     a.BannerImage,
 		Tags:            tags,
-		Notes:           "",
+		Genres:          a.Genres,
+		Characters:      characters,
+		Authors:         writers,
+		Artists:         pencillers,
+		Translators:     translators,
+		Letterers:       letterers,
+		StartDate:       a.StartDate,
+		EndDate:         a.EndDate,
+		Status:          MangaStatus(a.Status),
+		Country:         a.Country,
+		Chapters:        a.Chapters,
+		URL:             a.SiteURL,
+		IDAl:            a.ID,
+		IDMal:           a.IDMal,
 	}
 }

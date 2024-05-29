@@ -39,16 +39,16 @@ type Manga interface {
 
 	Info() MangaInfo
 
-	// AnilistManga returns the set AnilistManga.
-	// This is used to fetch metadata when downloading chapters.
+	// Metadata gets the associated metadata of the manga.
 	//
-	// Also Useful for templates.
-	AnilistManga() (AnilistManga, error)
+	// This is the basic metadata that is found in the provider itself.
+	// It's a pointer due to its changing nature.
+	Metadata() *Metadata
 
-	// SetAnilistManga will provide an AnilistManga for internal use.
+	// SetMetadata will replace the current metadata.
 	//
-	// This is controlled on the client, not by libmangal.
-	SetAnilistManga(AnilistManga)
+	// Useful when updating metadata fields.
+	SetMetadata(metadata *Metadata)
 }
 
 // MangaWithSeriesJSON is a Manga with an already associated SeriesJSON.
