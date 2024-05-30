@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -35,7 +34,7 @@ type pathExistsFunc func(string) (bool, error)
 //
 // Currently unused.
 func (c *Client) removeChapter(chapterPath string) error {
-	c.logger.Log("Removing " + chapterPath)
+	c.logger.Log("removing %s", chapterPath)
 
 	isDir, err := afero.IsDir(c.options.FS, chapterPath)
 	if err != nil {
@@ -355,7 +354,7 @@ func (c *Client) savePDF(
 	pages []mangadata.PageWithImage,
 	out io.Writer,
 ) error {
-	c.logger.Log(fmt.Sprintf("Saving %d pages as PDF", len(pages)))
+	c.logger.Log("saving %d pages as PDF", len(pages))
 
 	// convert to readers
 	images := make([]io.Reader, len(pages))
@@ -373,7 +372,7 @@ func (c *Client) saveCBZ(
 	comicInfoXml *metadata.ComicInfoXML,
 	options metadata.ComicInfoXMLOptions,
 ) (metadata.DownloadStatus, error) {
-	c.logger.Log(fmt.Sprintf("Saving %d pages as CBZ", len(pages)))
+	c.logger.Log("saving %d pages as CBZ", len(pages))
 
 	zipWriter := zip.NewWriter(out)
 	defer zipWriter.Close()
@@ -424,7 +423,7 @@ func (c *Client) saveTAR(
 	pages []mangadata.PageWithImage,
 	out io.Writer,
 ) error {
-	c.logger.Log(fmt.Sprintf("Saving %d pages as TAR", len(pages)))
+	c.logger.Log("saving %d pages as TAR", len(pages))
 
 	tarWriter := tar.NewWriter(out)
 	defer tarWriter.Close()
@@ -454,7 +453,7 @@ func (c *Client) saveTARGZ(
 	pages []mangadata.PageWithImage,
 	out io.Writer,
 ) error {
-	c.logger.Log(fmt.Sprintf("Bundling TAR into GZIP"))
+	c.logger.Log("bundling TAR into GZIP")
 
 	gzipWriter := gzip.NewWriter(out)
 	defer gzipWriter.Close()
@@ -466,7 +465,7 @@ func (c *Client) saveZIP(
 	pages []mangadata.PageWithImage,
 	out io.Writer,
 ) error {
-	c.logger.Log(fmt.Sprintf("Saving %d pages as ZIP", len(pages)))
+	c.logger.Log("saving %d pages as ZIP", len(pages))
 
 	zipWriter := zip.NewWriter(out)
 	defer zipWriter.Close()
@@ -501,7 +500,7 @@ func (c *Client) downloadMangaImage(
 	mangaImage mangaImage,
 	out io.Writer,
 ) error {
-	c.logger.Log(fmt.Sprintf("Downloading %s image", mangaImage))
+	c.logger.Log("downloading %s image", mangaImage)
 	var URL string
 	switch mangaImage {
 	case mangaImageCover:
@@ -512,11 +511,11 @@ func (c *Client) downloadMangaImage(
 		return fmt.Errorf("unknown manga image type %q to download", mangaImage)
 	}
 	if URL == "" {
-		msg := fmt.Sprintf("%s image url not found", mangaImage)
-		c.logger.Log(msg)
-		return errors.New(msg)
+		msgFmt := "%s image url not found"
+		c.logger.Log(msgFmt, mangaImage)
+		return fmt.Errorf(msgFmt, mangaImage)
 	}
-	c.logger.Log(fmt.Sprintf("%s image url: %s", mangaImage, URL))
+	c.logger.Log("%s image url: %s", mangaImage, URL)
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, URL, nil)
 	if err != nil {
@@ -594,7 +593,7 @@ func (c *Client) writeSeriesJSON(
 	manga mangadata.Manga,
 	out io.Writer,
 ) error {
-	c.logger.Log(fmt.Sprintf("Writing %s", metadata.FilenameSeriesJSON))
+	c.logger.Log("writing %s", metadata.FilenameSeriesJSON)
 
 	seriesJSON, err := c.getSeriesJSON(manga)
 	if err != nil {

@@ -79,7 +79,7 @@ func (a *Anilist) searchByID(
 	ctx context.Context,
 	id int,
 ) (Manga, bool, error) {
-	a.logger.Log(fmt.Sprintf("Searching manga with id %d on Anilist", id))
+	a.logger.Log("searching manga with id %d on Anilist", id)
 
 	body := anilistRequestBody{
 		Query: anilistQuerySearchByID,
@@ -110,7 +110,7 @@ func (a *Anilist) SearchMangas(
 	ctx context.Context,
 	query string,
 ) ([]Manga, error) {
-	a.logger.Log(fmt.Sprintf("Searching mangas with query %q on Anilist", query))
+	a.logger.Log("searching mangas with query %q on Anilist", query)
 
 	ids, found, err := a.cacheStatusQuery(query)
 	if err != nil {
@@ -174,7 +174,7 @@ func (a *Anilist) searchMangas(
 	}
 
 	mangas := data.Page.Media
-	a.logger.Log(fmt.Sprintf("Found %d manga(s) on Anilist", len(mangas)))
+	a.logger.Log("found %d manga(s) on Anilist", len(mangas))
 
 	return mangas, nil
 }
@@ -232,7 +232,7 @@ func sendRequest[Data any](
 			return data, err
 		}
 
-		anilist.logger.Log(fmt.Sprintf("Rate limited. Retrying in %d seconds", seconds))
+		anilist.logger.Log("rate limited, retrying in %d seconds", seconds)
 
 		select {
 		case <-time.After(time.Duration(seconds) * time.Second):
@@ -269,7 +269,7 @@ func (a *Anilist) SearchByManga(
 	ctx context.Context,
 	manga mangadata.Manga,
 ) (Manga, bool, error) {
-	a.logger.Log("Finding manga by (libmangal) manga on Anilist")
+	a.logger.Log("finding manga by (libmangal) manga on Anilist")
 	metadata := manga.Metadata()
 	if metadata != nil && metadata.IDAl != 0 {
 		anilistManga, found, err := a.SearchByID(ctx, metadata.IDAl)
@@ -293,7 +293,7 @@ func (a *Anilist) FindClosestManga(
 	ctx context.Context,
 	title string,
 ) (Manga, bool, error) {
-	a.logger.Log(fmt.Sprintf("Finding closest manga with query %s on Anilist", title))
+	a.logger.Log("finding closest manga with query %q on Anilist", title)
 
 	id, found, err := a.cacheStatusTitle(title)
 	if err != nil {
@@ -333,7 +333,7 @@ func (a *Anilist) findClosestManga(
 	tries int,
 ) (Manga, bool, error) {
 	for i := 0; i < tries; i++ {
-		a.logger.Log(fmt.Sprintf("Finding closest manga on Anilist (try %d/%d)", i+1, tries))
+		a.logger.Log("finding closest manga with query %q on Anilist (try %d/%d)", title, i+1, tries)
 
 		mangas, err := a.SearchMangas(ctx, title)
 		if err != nil {
@@ -342,7 +342,7 @@ func (a *Anilist) findClosestManga(
 
 		if len(mangas) > 0 {
 			closest := mangas[0]
-			a.logger.Log(fmt.Sprintf("Found closest manga on Anilist: %q #%d", closest.String(), closest.ID))
+			a.logger.Log("found closest manga on Anilist: %q with id %d", closest.String(), closest.ID)
 			return closest, true, nil
 		}
 

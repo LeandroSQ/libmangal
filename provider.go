@@ -2,7 +2,6 @@ package libmangal
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 
@@ -39,11 +38,11 @@ type ProviderInfo struct {
 // and ProviderInfo.Version is a valid semver.
 func (p ProviderInfo) Validate() error {
 	if p.ID == "" {
-		return errors.New("ID must be non-empty")
+		return fmt.Errorf("ID must be non-empty")
 	}
 
 	if p.Name == "" {
-		return errors.New("name must be non-empty")
+		return fmt.Errorf("name must be non-empty")
 	}
 
 	// according to the semver specification,

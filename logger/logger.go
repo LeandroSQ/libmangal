@@ -7,7 +7,7 @@ import (
 )
 
 type Logger struct {
-	onLog  func(string)
+	onLog  func(format string, a ...any)
 	logger *log.Logger
 	prefix string
 }
@@ -16,7 +16,7 @@ func NewLogger() *Logger {
 	logger := log.New(io.Discard, "", log.Default().Flags())
 
 	return &Logger{
-		onLog:  func(string) {},
+		onLog:  func(format string, a ...any) {},
 		logger: logger,
 		prefix: "",
 	}
@@ -39,14 +39,15 @@ func (l *Logger) SetOutput(writer io.Writer) {
 	l.logger.SetOutput(writer)
 }
 
-func (l *Logger) SetOnLog(hook func(string)) {
+func (l *Logger) SetOnLog(hook func(format string, a ...any)) {
 	l.onLog = hook
 }
 
-func (l *Logger) Log(message string) {
+func (l *Logger) Log(format string, a ...any) {
+	newFmt := fmt.Sprintf("%s%s", l.prefix, format)
 	if l.onLog != nil {
-		l.onLog(fmt.Sprintf("%s%s", l.prefix, message))
+		l.onLog(newFmt, a...)
 	}
-
-	l.logger.Println(message)
+	newFmt += "\n"
+	l.logger.Printf(newFmt, a...)
 }

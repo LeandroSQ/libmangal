@@ -105,13 +105,13 @@ func (c *Client) SearchMetadata(
 	ctx context.Context,
 	manga mangadata.Manga,
 ) (*metadata.Metadata, error) {
-	c.logger.Log(fmt.Sprintf("Searching metadata for manga %q", manga))
+	c.logger.Log("searching metadata for manga %q", manga)
 	anilistManga, found, err := c.Anilist().SearchByManga(ctx, manga)
 	if err != nil {
 		return nil, err
 	}
 	if !found {
-		c.logger.Log(fmt.Sprintf("Couldn't find associated anilist manga for %q", manga))
+		c.logger.Log("couldn't find associated anilist manga for %q", manga)
 		return nil, nil
 	}
 
@@ -127,7 +127,7 @@ func (c *Client) DownloadChapter(
 	chapter mangadata.Chapter,
 	options DownloadOptions,
 ) (*metadata.DownloadedChapter, error) {
-	c.logger.Log(fmt.Sprintf("Downloading chapter %q as %s", chapter, options.Format))
+	c.logger.Log("downloading chapter %q as %s", chapter, options.Format)
 
 	manga := chapter.Volume().Manga()
 	// TODO: do metadata "validation" to see it contains the minimal fields required,
@@ -142,7 +142,7 @@ func (c *Client) DownloadChapter(
 
 	// After a metadata search, if there is still no metadata then error out
 	if manga.Metadata() == nil && options.Strict {
-		return nil, fmt.Errorf("No metadata for manga %q", manga)
+		return nil, fmt.Errorf("no metadata for manga %q", manga)
 	}
 
 	// a temp client is used to download everything
@@ -187,22 +187,22 @@ func (c *Client) DownloadPagesInBatch(
 	pages []mangadata.Page,
 ) ([]mangadata.PageWithImage, error) {
 	if len(pages) == 0 {
-		return nil, fmt.Errorf("No pages provided for chapter")
+		return nil, fmt.Errorf("no pages provided for chapter")
 	}
-	c.logger.Log(fmt.Sprintf("Downloading %d pages", len(pages)))
+	c.logger.Log("downloading %d pages", len(pages))
 
 	g, ctx := errgroup.WithContext(ctx)
 	downloadedPages := make([]mangadata.PageWithImage, len(pages))
 	for i, page := range pages {
 		g.Go(func() error {
-			c.logger.Log(fmt.Sprintf("Page #%03d: downloading", i+1))
+			c.logger.Log("page #%03d: downloading", i+1)
 
 			downloaded, err := c.DownloadPage(ctx, page)
 			if err != nil {
 				return err
 			}
 
-			c.logger.Log(fmt.Sprintf("Page #%03d: done", i+1))
+			c.logger.Log("page #%03d: done", i+1)
 
 			downloadedPages[i] = downloaded
 			return nil
@@ -256,7 +256,7 @@ func (c *Client) ReadChapter(
 	chapter mangadata.Chapter,
 	options ReadOptions,
 ) error {
-	c.logger.Log("Opening chapter with the default app")
+	c.logger.Log("opening chapter with the default app")
 
 	err := open.Run(path)
 	if err != nil {
