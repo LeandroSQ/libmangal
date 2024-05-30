@@ -3,10 +3,10 @@ package libmangal
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/luevano/libmangal/mangadata"
+	"github.com/luevano/libmangal/metadata"
 	"github.com/luevano/libmangal/metadata/anilist"
 	"github.com/skratchdot/open-golang/open"
 	"github.com/spf13/afero"
@@ -98,42 +98,25 @@ func (c *Client) Info() ProviderInfo {
 	return c.provider.Info()
 }
 
-// TODO: add data about ComicInfoXML?
+// SearchMetadata will search for metadata on the available metadata providers.
 //
-// DownloadedChapter provides a way to move downloaded chapter
-// data around for easier handling.
-type DownloadedChapter struct {
-	// Name of the chapter, without directories.
-	Name string `json:"name"`
+// If manga contains non-nil metadata, it will try to search by ID first if available, then by title.
+func (c *Client) SearchMetadata(
+	ctx context.Context,
+	manga mangadata.Manga,
+) (*metadata.Metadata, error) {
+	c.logger.Log(fmt.Sprintf("Searching metadata for manga %q", manga))
+	anilistManga, found, err := c.Anilist().SearchByManga(ctx, manga)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		c.logger.Log(fmt.Sprintf("Couldn't find associated anilist manga for %q", manga))
+		return nil, nil
+	}
 
-	// Directory of the chapter (absolute).
-	Directory string `json:"directory"`
-
-	// ChapterStatus is the status of the downloaded chapter.
-	ChapterStatus DownloadStatus `json:"chapter_status"`
-
-	// SeriesJSONStatus is the status of the downloaded series.json.
-	SeriesJSONStatus DownloadStatus `json:"series_json_status"`
-
-	// ChapterStatus is the status of the downloaded chapter
-	CoverStatus DownloadStatus `json:"cover_status"`
-
-	// ChapterStatus is the status of the downloaded chapter.
-	BannerStatus DownloadStatus `json:"banner_status"`
+	return anilistManga.Metadata(), nil
 }
-
-func (dc DownloadedChapter) Path() string {
-	return filepath.Join(dc.Directory, dc.Name)
-}
-
-type DownloadStatus string
-
-const (
-	DownloadStatusNew         DownloadStatus = "new"
-	DownloadStatusSkip        DownloadStatus = "skip"
-	DownloadStatusExists      DownloadStatus = "exists"
-	DownloadStatusOverwritten DownloadStatus = "overwritten"
-)
 
 // DownloadChapter downloads and saves chapter to the specified
 // directory in the given format.
@@ -143,8 +126,24 @@ func (c *Client) DownloadChapter(
 	ctx context.Context,
 	chapter mangadata.Chapter,
 	options DownloadOptions,
-) (DownloadedChapter, error) {
+) (*metadata.DownloadedChapter, error) {
 	c.logger.Log(fmt.Sprintf("Downloading chapter %q as %s", chapter, options.Format))
+
+	manga := chapter.Volume().Manga()
+	// TODO: do metadata "validation" to see it contains the minimal fields required,
+	// and also make a search for missing metadata
+	if manga.Metadata() == nil && options.SearchMissingMetadata {
+		metadata, err := c.SearchMetadata(ctx, manga)
+		if err != nil {
+			return nil, err
+		}
+		manga.SetMetadata(metadata)
+	}
+
+	// After a metadata search, if there is still no metadata then error out
+	if manga.Metadata() == nil && options.Strict {
+		return nil, fmt.Errorf("No metadata for manga %q", manga)
+	}
 
 	// a temp client is used to download everything
 	// into temp memory, then it is moved into the actual
@@ -154,14 +153,13 @@ func (c *Client) DownloadChapter(
 		options:  c.options,
 		logger:   c.logger,
 	}
-
 	tmpClient.options.FS = afero.NewMemMapFs()
 
 	downChap, err := tmpClient.downloadChapterWithMetadata(ctx, chapter, options, func(path string) (bool, error) {
 		return afero.Exists(c.options.FS, path)
 	})
 	if err != nil {
-		return DownloadedChapter{}, err
+		return nil, err
 	}
 
 	if err := mergeDirectories(
@@ -169,12 +167,11 @@ func (c *Client) DownloadChapter(
 		c.FS(), options.Directory,
 		tmpClient.FS(), options.Directory,
 	); err != nil {
-		return DownloadedChapter{}, err
+		return nil, err
 	}
 
-	path := filepath.Join(downChap.Directory, downChap.Name)
 	if options.ReadAfter {
-		return downChap, c.ReadChapter(ctx, path, chapter, options.ReadOptions)
+		return downChap, c.ReadChapter(ctx, downChap.Path(), chapter, options.ReadOptions)
 	}
 
 	return downChap, nil
@@ -233,7 +230,10 @@ func (p *pageWithImage) SetImage(newImage []byte) {
 }
 
 // DownloadPage downloads a page contents (image).
-func (c *Client) DownloadPage(ctx context.Context, page mangadata.Page) (mangadata.PageWithImage, error) {
+func (c *Client) DownloadPage(
+	ctx context.Context,
+	page mangadata.Page,
+) (mangadata.PageWithImage, error) {
 	if withImage, ok := page.(mangadata.PageWithImage); ok {
 		return withImage, nil
 	}
@@ -249,7 +249,13 @@ func (c *Client) DownloadPage(ctx context.Context, page mangadata.Page) (mangada
 	}, nil
 }
 
-func (c *Client) ReadChapter(ctx context.Context, path string, chapter mangadata.Chapter, options ReadOptions) error {
+// ReadChapter opens the chapter for reading and marks it as read if authorized.
+func (c *Client) ReadChapter(
+	ctx context.Context,
+	path string,
+	chapter mangadata.Chapter,
+	options ReadOptions,
+) error {
 	c.logger.Log("Opening chapter with the default app")
 
 	err := open.Run(path)
@@ -257,6 +263,7 @@ func (c *Client) ReadChapter(ctx context.Context, path string, chapter mangadata
 		return err
 	}
 
+	// TODO: generalize this to mark as read on multiple metadata providers
 	if options.SaveAnilist && c.Anilist().IsAuthorized() {
 		return c.markChapterAsRead(ctx, chapter)
 	}

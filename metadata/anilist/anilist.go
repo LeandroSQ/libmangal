@@ -46,30 +46,28 @@ func NewAnilist(options Options) Anilist {
 	return anilist
 }
 
-// GetByID gets anilist manga by its id.
-func (a *Anilist) GetByID(
+// SearchByID gets anilist manga by its id.
+func (a *Anilist) SearchByID(
 	ctx context.Context,
-	mangaID int,
+	id int,
 ) (Manga, bool, error) {
-	found, manga, err := a.cacheStatusId(mangaID)
+	manga, found, err := a.cacheStatusId(id)
 	if err != nil {
 		return Manga{}, false, Error{err}
 	}
-
 	if found {
 		return manga, true, nil
 	}
 
-	manga, ok, err := a.getByID(ctx, mangaID)
+	manga, ok, err := a.searchByID(ctx, id)
 	if err != nil {
 		return Manga{}, false, Error{err}
 	}
-
 	if !ok {
 		return Manga{}, false, nil
 	}
 
-	err = a.cacheSetId(mangaID, manga)
+	err = a.cacheSetId(id, manga)
 	if err != nil {
 		return Manga{}, false, Error{err}
 	}
@@ -77,16 +75,16 @@ func (a *Anilist) GetByID(
 	return manga, true, nil
 }
 
-func (a *Anilist) getByID(
+func (a *Anilist) searchByID(
 	ctx context.Context,
-	mangaID int,
+	id int,
 ) (Manga, bool, error) {
-	a.logger.Log(fmt.Sprintf("Searching manga with id %d on AnilistSearch", mangaID))
+	a.logger.Log(fmt.Sprintf("Searching manga with id %d on Anilist", id))
 
 	body := anilistRequestBody{
 		Query: anilistQuerySearchByID,
 		Variables: map[string]any{
-			"id": mangaID,
+			"id": id,
 		},
 	}
 
@@ -105,35 +103,31 @@ func (a *Anilist) getByID(
 	return *manga, true, nil
 }
 
+// TODO: re-validate that SearchMangas is working as intended.
+//
 // SearchMangas gets a list of anilist mangas given a query (title).
 func (a *Anilist) SearchMangas(
 	ctx context.Context,
 	query string,
 ) ([]Manga, error) {
-	a.logger.Log("Searching manga on AnilistSearch...")
+	a.logger.Log(fmt.Sprintf("Searching mangas with query %q on Anilist", query))
 
-	{
-		found, ids, err := a.cacheStatusQuery(query)
-		if err != nil {
-			return nil, Error{err}
-		}
-
-		if found {
-			var mangas []Manga
-
-			for _, id := range ids {
-				manga, ok, err := a.GetByID(ctx, id)
-				if err != nil {
-					return nil, err
-				}
-
-				if ok {
-					mangas = append(mangas, manga)
-				}
+	ids, found, err := a.cacheStatusQuery(query)
+	if err != nil {
+		return nil, Error{err}
+	}
+	if found {
+		var mangas []Manga
+		for _, id := range ids {
+			manga, ok, err := a.SearchByID(ctx, id)
+			if err != nil {
+				return nil, err
 			}
-
-			return mangas, nil
+			if ok {
+				mangas = append(mangas, manga)
+			}
 		}
+		return mangas, nil
 	}
 
 	mangas, err := a.searchMangas(ctx, query)
@@ -141,7 +135,7 @@ func (a *Anilist) SearchMangas(
 		return nil, err
 	}
 
-	ids := make([]int, len(mangas))
+	ids = make([]int, len(mangas))
 	for i, manga := range mangas {
 		err := a.cacheSetId(manga.ID, manga)
 		if err != nil {
@@ -180,8 +174,7 @@ func (a *Anilist) searchMangas(
 	}
 
 	mangas := data.Page.Media
-
-	a.logger.Log(fmt.Sprintf("Found %d manga(s) on AnilistSearch.", len(mangas)))
+	a.logger.Log(fmt.Sprintf("Found %d manga(s) on Anilist", len(mangas)))
 
 	return mangas, nil
 }
@@ -239,7 +232,7 @@ func sendRequest[Data any](
 			return data, err
 		}
 
-		anilist.logger.Log(fmt.Sprintf("Rate limited. Retrying in %d seconds...", seconds))
+		anilist.logger.Log(fmt.Sprintf("Rate limited. Retrying in %d seconds", seconds))
 
 		select {
 		case <-time.After(time.Duration(seconds) * time.Second):
@@ -269,17 +262,27 @@ func sendRequest[Data any](
 	return body.Data, nil
 }
 
-// FindClosestMangaByManga is a convenience method to search given a Manga.
-func (a *Anilist) FindClosestMangaByManga(
+// SearchByManga is a convenience method to search given a Manga.
+//
+// If manga contains non-nil metadata, it will try to search by its Anilist ID first if available, then by title.
+func (a *Anilist) SearchByManga(
 	ctx context.Context,
 	manga mangadata.Manga,
 ) (Manga, bool, error) {
+	a.logger.Log("Finding manga by (libmangal) manga on Anilist")
+	metadata := manga.Metadata()
+	if metadata != nil && metadata.IDAl != 0 {
+		anilistManga, found, err := a.SearchByID(ctx, metadata.IDAl)
+		if err == nil && found {
+			return anilistManga, true, nil
+		}
+	}
+
 	var title string
-	info := manga.Info()
-	if info.AnilistSearch != "" {
-		title = info.AnilistSearch
+	if manga.Info().AnilistSearch != "" {
+		title = manga.Info().AnilistSearch
 	} else {
-		title = info.Title
+		title = manga.Info().Title
 	}
 
 	return a.FindClosestManga(ctx, title)
@@ -290,15 +293,14 @@ func (a *Anilist) FindClosestManga(
 	ctx context.Context,
 	title string,
 ) (Manga, bool, error) {
-	a.logger.Log("Finding closest manga on AnilistSearch...")
+	a.logger.Log(fmt.Sprintf("Finding closest manga with query %s on Anilist", title))
 
-	found, id, err := a.cacheStatusTitle(title)
+	id, found, err := a.cacheStatusTitle(title)
 	if err != nil {
 		return Manga{}, false, Error{err}
 	}
-
 	if found {
-		found, manga, err := a.cacheStatusId(id)
+		manga, found, err := a.cacheStatusId(id)
 		if err != nil {
 			return Manga{}, false, Error{err}
 		}
@@ -312,7 +314,6 @@ func (a *Anilist) FindClosestManga(
 	if err != nil {
 		return Manga{}, false, Error{err}
 	}
-
 	if !ok {
 		return Manga{}, false, nil
 	}
@@ -332,9 +333,7 @@ func (a *Anilist) findClosestManga(
 	tries int,
 ) (Manga, bool, error) {
 	for i := 0; i < tries; i++ {
-		a.logger.Log(
-			fmt.Sprintf("Finding closest manga on AnilistSearch (try %d/%d)", i+1, tries),
-		)
+		a.logger.Log(fmt.Sprintf("Finding closest manga on Anilist (try %d/%d)", i+1, tries))
 
 		mangas, err := a.SearchMangas(ctx, title)
 		if err != nil {
@@ -343,7 +342,7 @@ func (a *Anilist) findClosestManga(
 
 		if len(mangas) > 0 {
 			closest := mangas[0]
-			a.logger.Log(fmt.Sprintf("Found closest manga on AnilistSearch: %q #%d", closest.String(), closest.ID))
+			a.logger.Log(fmt.Sprintf("Found closest manga on Anilist: %q #%d", closest.String(), closest.ID))
 			return closest, true, nil
 		}
 

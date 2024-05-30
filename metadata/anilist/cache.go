@@ -4,7 +4,7 @@ import "strconv"
 
 func (a *Anilist) cacheStatusQuery(
 	query string,
-) (found bool, ids []int, err error) {
+) (ids []int, found bool, err error) {
 	found, err = a.options.QueryToIDsStore.Get(query, &ids)
 	return
 }
@@ -18,7 +18,7 @@ func (a *Anilist) cacheSetQuery(
 
 func (a *Anilist) cacheStatusTitle(
 	title string,
-) (found bool, id int, err error) {
+) (id int, found bool, err error) {
 	found, err = a.options.TitleToIDStore.Get(title, &id)
 	return
 }
@@ -32,7 +32,7 @@ func (a *Anilist) cacheSetTitle(
 
 func (a *Anilist) cacheStatusId(
 	id int,
-) (found bool, manga Manga, err error) {
+) (manga Manga, found bool, err error) {
 	found, err = a.options.IDToMangaStore.Get(strconv.Itoa(id), &manga)
 	return
 }

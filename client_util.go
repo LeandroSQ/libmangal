@@ -54,7 +54,7 @@ func (c *Client) downloadChapterWithMetadata(
 	chapter mangadata.Chapter,
 	options DownloadOptions,
 	existsFunc pathExistsFunc,
-) (DownloadedChapter, error) {
+) (*metadata.DownloadedChapter, error) {
 	directory := options.Directory
 
 	var (
@@ -80,52 +80,50 @@ func (c *Client) downloadChapterWithMetadata(
 
 	err := c.options.FS.MkdirAll(directory, c.options.ModeDir)
 	if err != nil {
-		return DownloadedChapter{}, err
+		return nil, err
 	}
 
-	chapterName := c.ComputeChapterFilename(chapter, options.Format)
-	chapterPath := filepath.Join(directory, chapterName)
+	chapterFilename := c.ComputeChapterFilename(chapter, options.Format)
+	chapterPath := filepath.Join(directory, chapterFilename)
 
 	chapterExists, err := existsFunc(chapterPath)
 	if err != nil {
-		return DownloadedChapter{}, err
+		return nil, err
 	}
 
 	manga := chapter.Volume().Manga()
-	// TODO: allow for unavailable anilist metadata
-	if manga.Metadata() == nil {
-		anilistManga, found, err := c.Anilist().FindClosestMangaByManga(ctx, manga)
-		if err != nil {
-			return DownloadedChapter{}, err
-		}
-		if !found {
-			msg := fmt.Sprintf("Couldn't find associated anilist manga for %q", manga.Info().Title)
-			c.logger.Log(msg)
-			return DownloadedChapter{}, fmt.Errorf(msg)
-		}
-		manga.SetMetadata(anilistManga.Metadata())
-	}
-
 	// Data about downloaded chapter
-	downChap := DownloadedChapter{
-		Name:             chapterName,
-		Directory:        directory,
-		ChapterStatus:    DownloadStatusExists,
-		SeriesJSONStatus: DownloadStatusSkip,
-		CoverStatus:      DownloadStatusSkip,
-		BannerStatus:     DownloadStatusSkip,
+	downChap := &metadata.DownloadedChapter{
+		Number:             chapter.Info().Number,
+		Title:              chapter.Info().Title,
+		Filename:           chapterFilename,
+		Directory:          directory,
+		ChapterStatus:      metadata.DownloadStatusExists,
+		SeriesJSONStatus:   metadata.DownloadStatusSkip,
+		ComicInfoXMLStatus: metadata.DownloadStatusSkip, // only CBZ writes it
+		CoverStatus:        metadata.DownloadStatusSkip,
+		BannerStatus:       metadata.DownloadStatusSkip,
 	}
 
 	if !chapterExists || !options.SkipIfExists {
-		err = c.downloadChapter(ctx, chapter, chapterPath, options)
+		ciXmlStatus, err := c.downloadChapter(ctx, chapter, chapterPath, options)
 		if err != nil {
-			return DownloadedChapter{}, err
+			return nil, err
 		}
+		downChap.ComicInfoXMLStatus = ciXmlStatus
 
-		downChap.ChapterStatus = DownloadStatusNew
+		downChap.ChapterStatus = metadata.DownloadStatusNew
 		if !options.SkipIfExists {
-			downChap.ChapterStatus = DownloadStatusOverwritten
+			downChap.ChapterStatus = metadata.DownloadStatusOverwritten
 		}
+	}
+
+	// "Strict" check is already performed on DownloadChapter
+	if manga.Metadata() == nil {
+		downChap.SeriesJSONStatus = metadata.DownloadStatusMissingMetadata
+		downChap.CoverStatus = metadata.DownloadStatusMissingMetadata
+		downChap.BannerStatus = metadata.DownloadStatusMissingMetadata
+		return downChap, nil
 	}
 
 	skip := options.SkipSeriesJSONIfOngoing && manga.Metadata().Status == metadata.StatusReleasing
@@ -133,23 +131,25 @@ func (c *Client) downloadChapterWithMetadata(
 		path := filepath.Join(seriesJSONDir, metadata.FilenameSeriesJSON)
 		exists, err := existsFunc(path)
 		if err != nil {
-			return DownloadedChapter{}, err
+			return nil, err
 		}
 
+		downChap.SeriesJSONStatus = metadata.DownloadStatusExists
 		if !exists {
 			file, err := c.options.FS.Create(path)
 			if err != nil {
-				return DownloadedChapter{}, err
+				return nil, err
 			}
 			defer file.Close()
 
 			err = c.writeSeriesJSON(manga, file)
-			if err != nil && options.Strict {
-				return DownloadedChapter{}, metadata.Error{err}
+			downChap.SeriesJSONStatus = metadata.DownloadStatusNew
+			if err != nil {
+				downChap.SeriesJSONStatus = metadata.DownloadStatusFailed
+				if options.Strict {
+					return nil, metadata.Error{err}
+				}
 			}
-			downChap.SeriesJSONStatus = DownloadStatusNew
-		} else {
-			downChap.SeriesJSONStatus = DownloadStatusExists
 		}
 	}
 
@@ -157,23 +157,25 @@ func (c *Client) downloadChapterWithMetadata(
 		path := filepath.Join(coverDir, metadata.FilenameCoverJPG)
 		exists, err := existsFunc(path)
 		if err != nil {
-			return DownloadedChapter{}, err
+			return nil, err
 		}
 
+		downChap.CoverStatus = metadata.DownloadStatusExists
 		if !exists {
 			file, err := c.options.FS.Create(path)
 			if err != nil {
-				return DownloadedChapter{}, err
+				return nil, err
 			}
 			defer file.Close()
 
 			err = c.downloadMangaImage(ctx, manga, mangaImageCover, file)
-			if err != nil && options.Strict {
-				return DownloadedChapter{}, metadata.Error{err}
+			downChap.CoverStatus = metadata.DownloadStatusNew
+			if err != nil {
+				downChap.CoverStatus = metadata.DownloadStatusFailed
+				if options.Strict {
+					return nil, metadata.Error{err}
+				}
 			}
-			downChap.CoverStatus = DownloadStatusNew
-		} else {
-			downChap.CoverStatus = DownloadStatusExists
 		}
 	}
 
@@ -181,23 +183,25 @@ func (c *Client) downloadChapterWithMetadata(
 		path := filepath.Join(bannerDir, metadata.FilenameBannerJPG)
 		exists, err := existsFunc(path)
 		if err != nil {
-			return DownloadedChapter{}, err
+			return nil, err
 		}
 
+		downChap.BannerStatus = metadata.DownloadStatusExists
 		if !exists {
 			file, err := c.options.FS.Create(path)
 			if err != nil {
-				return DownloadedChapter{}, err
+				return nil, err
 			}
 			defer file.Close()
 
 			err = c.downloadMangaImage(ctx, manga, mangaImageBanner, file)
-			if err != nil && options.Strict {
-				return DownloadedChapter{}, metadata.Error{err}
+			downChap.BannerStatus = metadata.DownloadStatusNew
+			if err != nil {
+				downChap.BannerStatus = metadata.DownloadStatusFailed
+				if options.Strict {
+					return nil, metadata.Error{err}
+				}
 			}
-			downChap.BannerStatus = DownloadStatusNew
-		} else {
-			downChap.BannerStatus = DownloadStatusExists
 		}
 	}
 
@@ -210,65 +214,67 @@ func (c *Client) downloadChapter(
 	chapter mangadata.Chapter,
 	path string,
 	options DownloadOptions,
-) error {
+) (metadata.DownloadStatus, error) {
 	pages, err := c.ChapterPages(ctx, chapter)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	downloadedPages, err := c.DownloadPagesInBatch(ctx, pages)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	for _, page := range downloadedPages {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return "", ctx.Err()
 		default:
 		}
 
 		image, err := options.ImageTransformer(page.Image())
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		page.SetImage(image)
 	}
 
+	// Only CBZ writes the ComicInfo.xml, so by default it's skipped
+	ciXmlStatusSkip := metadata.DownloadStatusSkip
 	switch options.Format {
 	case FormatPDF:
 		file, err := c.options.FS.Create(path)
 		if err != nil {
-			return err
+			return "", err
 		}
 		defer file.Close()
 
-		return c.savePDF(downloadedPages, file)
+		return ciXmlStatusSkip, c.savePDF(downloadedPages, file)
 	case FormatTAR:
 		file, err := c.options.FS.Create(path)
 		if err != nil {
-			return err
+			return "", err
 		}
 		defer file.Close()
 
-		return c.saveTAR(downloadedPages, file)
+		return ciXmlStatusSkip, c.saveTAR(downloadedPages, file)
 	case FormatTARGZ:
 		file, err := c.options.FS.Create(path)
 		if err != nil {
-			return err
+			return "", err
 		}
 		defer file.Close()
 
-		return c.saveTARGZ(downloadedPages, file)
+		return ciXmlStatusSkip, c.saveTARGZ(downloadedPages, file)
 	case FormatZIP:
 		file, err := c.options.FS.Create(path)
 		if err != nil {
-			return err
+			return "", err
 		}
 		defer file.Close()
 
-		return c.saveZIP(downloadedPages, file)
+		return ciXmlStatusSkip, c.saveZIP(downloadedPages, file)
 	case FormatCBZ:
 		var comicInfoXML *metadata.ComicInfoXML
 		if options.WriteComicInfoXML {
@@ -283,21 +289,21 @@ func (c *Client) downloadChapter(
 			}
 			ciXML, err := c.getComicInfoXML(chapter, metaChapter)
 			if err != nil && options.Strict {
-				return err
+				return "", err
 			}
 			comicInfoXML = &ciXML
 		}
 
 		file, err := c.options.FS.Create(path)
 		if err != nil {
-			return err
+			return "", err
 		}
 		defer file.Close()
 
 		return c.saveCBZ(downloadedPages, file, comicInfoXML, options.ComicInfoXMLOptions)
 	case FormatImages:
 		if err := c.options.FS.MkdirAll(path, c.options.ModeDir); err != nil {
-			return err
+			return "", err
 		}
 
 		for i, page := range downloadedPages {
@@ -309,11 +315,11 @@ func (c *Client) downloadChapter(
 				c.options.ModeFile,
 			)
 			if err != nil {
-				return err
+				return "", err
 			}
 		}
 
-		return nil
+		return ciXmlStatusSkip, nil
 	default:
 		// format validation was done before
 		panic("unreachable")
@@ -327,7 +333,10 @@ func (c *Client) downloadChapter(
 //
 // The metadata that it uses as fallback could be set by the provider,
 // by the client or by libmangal (when no metadata is found it searches for it).
-func (c *Client) getComicInfoXML(mangaChapter mangadata.Chapter, metaChapter metadata.Chapter) (metadata.ComicInfoXML, error) {
+func (c *Client) getComicInfoXML(
+	mangaChapter mangadata.Chapter,
+	metaChapter metadata.Chapter,
+) (metadata.ComicInfoXML, error) {
 	withComicInfoXML, ok := mangaChapter.(mangadata.ChapterWithComicInfoXML)
 	if ok {
 		comicInfo, found, err := withComicInfoXML.ComicInfoXML()
@@ -363,7 +372,7 @@ func (c *Client) saveCBZ(
 	out io.Writer,
 	comicInfoXml *metadata.ComicInfoXML,
 	options metadata.ComicInfoXMLOptions,
-) error {
+) (metadata.DownloadStatus, error) {
 	c.logger.Log(fmt.Sprintf("Saving %d pages as CBZ", len(pages)))
 
 	zipWriter := zip.NewWriter(out)
@@ -376,19 +385,21 @@ func (c *Client) saveCBZ(
 			Modified: time.Now(),
 		})
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		_, err = writer.Write(page.Image())
 		if err != nil {
-			return err
+			return "", nil
 		}
 	}
 
+	ciXmlStatus := metadata.DownloadStatusMissingMetadata
 	if comicInfoXml != nil {
+		ciXmlStatus = metadata.DownloadStatusNew
 		marshalled, err := comicInfoXml.Marshal(options)
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		writer, err := zipWriter.CreateHeader(&zip.FileHeader{
@@ -397,16 +408,16 @@ func (c *Client) saveCBZ(
 			Modified: time.Now(),
 		})
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		_, err = writer.Write(marshalled)
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
 
-	return nil
+	return ciXmlStatus, nil
 }
 
 func (c *Client) saveTAR(
@@ -484,7 +495,12 @@ func (c *Client) saveZIP(
 // For example this can be either banner image or cover image.
 //
 // Manga is required to set Referer header.
-func (c *Client) downloadMangaImage(ctx context.Context, manga mangadata.Manga, mangaImage mangaImage, out io.Writer) error {
+func (c *Client) downloadMangaImage(
+	ctx context.Context,
+	manga mangadata.Manga,
+	mangaImage mangaImage,
+	out io.Writer,
+) error {
 	c.logger.Log(fmt.Sprintf("Downloading %s image", mangaImage))
 	var URL string
 	switch mangaImage {
@@ -557,7 +573,9 @@ func getBanner(manga mangadata.Manga) string {
 //
 // The metadata that it uses as fallback could be set by the provider,
 // by the client or by libmangal (when no metadata is found it searches for it).
-func (c *Client) getSeriesJSON(manga mangadata.Manga) (metadata.SeriesJSON, error) {
+func (c *Client) getSeriesJSON(
+	manga mangadata.Manga,
+) (metadata.SeriesJSON, error) {
 	withSeriesJSON, ok := manga.(mangadata.MangaWithSeriesJSON)
 	if ok {
 		seriesJSON, found, err := withSeriesJSON.SeriesJSON()
@@ -572,7 +590,10 @@ func (c *Client) getSeriesJSON(manga mangadata.Manga) (metadata.SeriesJSON, erro
 	return manga.Metadata().SeriesJSON(), nil
 }
 
-func (c *Client) writeSeriesJSON(manga mangadata.Manga, out io.Writer) error {
+func (c *Client) writeSeriesJSON(
+	manga mangadata.Manga,
+	out io.Writer,
+) error {
 	c.logger.Log(fmt.Sprintf("Writing %s", metadata.FilenameSeriesJSON))
 
 	seriesJSON, err := c.getSeriesJSON(manga)
@@ -589,7 +610,11 @@ func (c *Client) writeSeriesJSON(manga mangadata.Manga, out io.Writer) error {
 	return err
 }
 
-func (c *Client) markChapterAsRead(ctx context.Context, chapter mangadata.Chapter) error {
+// TODO: move into anilist? this is specific to anilist read progress
+func (c *Client) markChapterAsRead(
+	ctx context.Context,
+	chapter mangadata.Chapter,
+) error {
 	chapterMangaInfo := chapter.Volume().Manga().Info()
 
 	var titleToSearch string
