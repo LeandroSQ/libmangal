@@ -19,6 +19,11 @@ const (
 	StatusHiatus         Status = "HIATUS"
 )
 
+const (
+	IDSourceAnilist     = "al"
+	IDSourceMyAnimeList = "mal"
+)
+
 // Date is a simple date holder.
 type Date struct {
 	Year  int `json:"year"`
@@ -114,10 +119,29 @@ type Metadata struct {
 	// URL is the source URL of the metadata.
 	URL string `json:"url"`
 
+	// IDProvider is the provider assigned ID
+	// (used when no other metadata ID is available),
+	// could be arbitrary.
+	//
+	// If set, IDProviderName must also be set.
+	IDProvider int `json:"id_provider"`
+
+	// IDProviderName is the provider ID name,
+	// goes alongside IDProvider, could be arbitrary.
+	//
+	// Should be less than 5 characters, ideally just 2-3.
+	//
+	// If set, IDProvider Name must also be set.
+	IDProviderName string `json:"id_provider_name"`
+
 	// IDAl is the Anilist ID.
+	//
+	// Must be > 0.
 	IDAl int `json:"id_al"`
 
 	// IDMal is the MyAnimeList ID.
+	//
+	// Must be > 0.
 	IDMal int `json:"id_mal"`
 }
 
@@ -136,13 +160,17 @@ func (m *Metadata) String() string {
 		yearStr = fmt.Sprintf(" (%d)", year)
 	}
 	var idStr string
-	if id != 0 {
+	if id != -1 {
 		idStr = fmt.Sprintf(" [%sid-%d]", idSource, id)
 	}
 
 	return fmt.Sprintf("%s%s%s", title, yearStr, idStr)
 }
 
+// Title returns the title of the manga.
+//
+// Order of priority:
+// English -> Romaji -> Native
 func (m *Metadata) Title() string {
 	if m.EnglishTitle != "" {
 		return m.EnglishTitle
@@ -154,23 +182,42 @@ func (m *Metadata) Title() string {
 }
 
 // ID of the external metadata.
+//
+// Checks for an ID in the following order:
+// Anilist -> MyAnimeList -> Provider (custom)
+//
+// If no ID is available, returns -1.
 func (m *Metadata) ID() int {
 	// The anilist id should never be 0 (for now) but just in case
-	if m.IDAl != 0 {
+	if m.IDAl > 0 {
 		return m.IDAl
 	}
-	return m.IDMal
+	if m.IDMal > 0 {
+		return m.IDMal
+	}
+	if m.IDProvider > 0 && m.IDProviderName != "" {
+		return m.IDProvider
+	}
+	return -1
 }
 
-// TODO: placeholder, need to better handle this
-// once the amount of external metadata ids grow
-//
 // IDSource get the type of the external metadata ID.
 //
 // For example "al" for Anilist or "mal" for MyAnimeList.
+//
+// Checks for an ID in the following order:
+// Anilist -> MyAnimeList -> Provider (custom)
+//
+// If no ID available, returns empty string.
 func (m *Metadata) IDSource() string {
-	if m.IDAl != 0 {
-		return "al"
+	if m.IDAl > 0 {
+		return IDSourceAnilist
 	}
-	return "mal"
+	if m.IDMal > 0 {
+		return IDSourceMyAnimeList
+	}
+	if m.IDProvider > 0 && m.IDProviderName != "" {
+		return m.IDProviderName
+	}
+	return ""
 }
