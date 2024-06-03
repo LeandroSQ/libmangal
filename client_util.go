@@ -117,8 +117,7 @@ func (c *Client) downloadChapterWithMetadata(
 		}
 	}
 
-	// "Strict" check is already performed on DownloadChapter
-	if manga.Metadata() == nil {
+	if manga.Metadata().Validate() != nil {
 		downChap.SeriesJSONStatus = metadata.DownloadStatusMissingMetadata
 		downChap.CoverStatus = metadata.DownloadStatusMissingMetadata
 		downChap.BannerStatus = metadata.DownloadStatusMissingMetadata
@@ -276,7 +275,7 @@ func (c *Client) downloadChapter(
 		return ciXmlStatusSkip, c.saveZIP(downloadedPages, file)
 	case FormatCBZ:
 		var comicInfoXML *metadata.ComicInfoXML
-		if options.WriteComicInfoXML {
+		if options.WriteComicInfoXML && chapter.Volume().Manga().Metadata().Validate() == nil {
 			mangaChapter := chapter.Info()
 			metaChapter := metadata.Chapter{
 				Title:           mangaChapter.Title,

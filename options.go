@@ -54,13 +54,10 @@ type DownloadOptions struct {
 	// will be created under it.
 	CreateVolumeDir bool
 
-	// Strict means that that if there is missing metadata or if an error occurs during
+	// Strict means that that if the metadata is invalid or if an error occurs during
 	// metadata files creation, the chapter will not be written to disk.
 	//
 	// Some metadata is potentially written to disk.
-	//
-	// Checks if the metadata is non-nil as well as if it contains the minimum metadata fields.
-	// This check comes after SearchMissingMetadata.
 	Strict bool
 
 	// SkipIfExists will skip downloading chapter if its already downloaded (exists at path).
@@ -68,11 +65,12 @@ type DownloadOptions struct {
 	// However, metadata will still be created if needed.
 	SkipIfExists bool
 
-	// SearchMissingMetadata will search for missing metadata on the available metadata providers.
-	// Checks if the metadata is non-nil as well as if it contains the minimum metadata fields.
+	// SearchMetadata will search for metadata on the available metadata providers,
+	// and use the found metadata regardless of the incoming manga metadata which
+	// could result in `nil` metadata when not found.
 	//
 	// Search priority is always by ID (if provided as part of one of the metadata fields), then by the title.
-	SearchMissingMetadata bool
+	SearchMetadata bool
 
 	// DownloadMangaCover or not. Will not download cover again if its already downloaded.
 	DownloadMangaCover bool
@@ -128,7 +126,7 @@ func DefaultDownloadOptions() DownloadOptions {
 		CreateVolumeDir:         false,
 		Strict:                  true,
 		SkipIfExists:            true,
-		SearchMissingMetadata:   true,
+		SearchMetadata:          true,
 		DownloadMangaCover:      false,
 		DownloadMangaBanner:     false,
 		WriteSeriesJSON:         false,

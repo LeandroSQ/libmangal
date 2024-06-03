@@ -130,19 +130,17 @@ func (c *Client) DownloadChapter(
 	c.logger.Log("downloading chapter %q as %s", chapter, options.Format)
 
 	manga := chapter.Volume().Manga()
-	// TODO: do metadata "validation" to see it contains the minimal fields required,
-	// and also make a search for missing metadata
-	if manga.Metadata() == nil && options.SearchMissingMetadata {
-		metadata, err := c.SearchMetadata(ctx, manga)
+	// Found metadata will be replacing the incoming one, even when no metadata is found (nil)
+	if options.SearchMetadata {
+		meta, err := c.SearchMetadata(ctx, manga)
 		if err != nil {
 			return nil, err
 		}
-		manga.SetMetadata(metadata)
+		manga.SetMetadata(meta)
 	}
-
-	// After a metadata search, if there is still no metadata then error out
-	if manga.Metadata() == nil && options.Strict {
-		return nil, fmt.Errorf("no metadata for manga %q", manga)
+	// Even after a metadata search, check if it is valid (nil for example)
+	if manga.Metadata().Validate() != nil && options.Strict {
+		return nil, fmt.Errorf("no valid metadata for manga %q: %s", manga, manga.Metadata().Validate())
 	}
 
 	// a temp client is used to download everything

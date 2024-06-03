@@ -271,6 +271,7 @@ func (a *Anilist) SearchByManga(
 ) (Manga, bool, error) {
 	a.logger.Log("finding manga by (libmangal) manga on Anilist")
 	metadata := manga.Metadata()
+	// Try to search by Anilist ID if it is provided
 	if metadata != nil && metadata.IDAl != 0 {
 		anilistManga, found, err := a.SearchByID(ctx, metadata.IDAl)
 		if err == nil && found {
@@ -279,6 +280,10 @@ func (a *Anilist) SearchByManga(
 	}
 
 	var title string
+	// Else try to search by the title, this doesn't ensure
+	// that the found anilist manga is 100% corresponding to
+	// the manga requested, there are some instances in which
+	// the result is wrong
 	if manga.Info().AnilistSearch != "" {
 		title = manga.Info().AnilistSearch
 	} else {

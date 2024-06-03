@@ -1,6 +1,9 @@
 package metadata
 
-import "fmt"
+import (
+	"fmt"
+	"reflect"
+)
 
 const (
 	FilenameComicInfoXML = "ComicInfo.xml"
@@ -220,4 +223,60 @@ func (m *Metadata) IDSource() string {
 		return m.IDProviderName
 	}
 	return ""
+}
+
+// Validate will make sure the Metadata is valid/usable
+// to write enough metadata to files.
+//
+// At the very least checks that: Title, Description, Authors,
+// StartDate and Status are non-empty/non-zero.
+func (m *Metadata) Validate() error {
+	if m == nil {
+		return Error{fmt.Errorf("Metadata is nil")}
+	}
+
+	if m.Title() == "" {
+		return Error{fmt.Errorf("Title must be non-empty")}
+	}
+	if m.Description == "" {
+		return Error{fmt.Errorf("Description must be non-empty")}
+	}
+	if len(m.Authors) == 0 {
+		return Error{fmt.Errorf("Authors must be non-empty")}
+	}
+	if m.StartDate == (Date{}) {
+		return Error{fmt.Errorf("StartDate must be non-zero")}
+	}
+	if m.Status == "" {
+		return Error{fmt.Errorf("Status must be non-empty")}
+	}
+	// TODO: also check for ID/IDSource? Metadata.String allows for missing id...
+	// if m.ID() == -1 {
+	// 	return Error{fmt.Errorf("ID must be greater than zero")}
+	// }
+	// if m.IDSource() == "" {
+	// 	return Error{fmt.Errorf("IDSource must be non-empty")}
+	// }
+	return nil
+}
+
+// ValidityScore returns a value that represents the amount
+// of Metadata fields set.
+//
+// 0 means it's the zero-valued Metadata, -1 that it's null.
+func (m *Metadata) ValidityScore() int {
+	if m == nil {
+		return -1
+	}
+
+	s := 0
+	mValue := reflect.ValueOf(*m)
+	for i := 0; i < mValue.NumField(); i++ {
+		// fieldName := mValue.Type().Field(i).Name
+		fieldValue := mValue.Field(i).Interface()
+		if !reflect.DeepEqual(fieldValue, reflect.Zero(mValue.Field(i).Type()).Interface()) {
+			s += 1
+		}
+	}
+	return s
 }
