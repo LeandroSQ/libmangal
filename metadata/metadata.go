@@ -126,7 +126,8 @@ type Metadata struct {
 	// (used when no other metadata ID is available),
 	// could be arbitrary.
 	//
-	// If set, IDProviderName must also be set.
+	// If set, IDProviderName must also be set and it
+	// is considered that this metadata is from the provider.
 	IDProvider int `json:"id_provider"`
 
 	// IDProviderName is the provider ID name,
@@ -134,7 +135,8 @@ type Metadata struct {
 	//
 	// Should be less than 5 characters, ideally just 2-3.
 	//
-	// If set, IDProvider Name must also be set.
+	// If set, it is considered that this metadata is from the provider.
+	// Regardless of IDProvider value.
 	IDProviderName string `json:"id_provider_name"`
 
 	// IDAl is the Anilist ID.
@@ -163,7 +165,7 @@ func (m *Metadata) String() string {
 		yearStr = fmt.Sprintf(" (%d)", year)
 	}
 	var idStr string
-	if id != -1 {
+	if id > 0 && idSource != "" {
 		idStr = fmt.Sprintf(" [%sid-%d]", idSource, id)
 	}
 
@@ -189,17 +191,19 @@ func (m *Metadata) Title() string {
 // Checks for an ID in the following order:
 // Anilist -> MyAnimeList -> Provider (custom)
 //
-// If no ID is available, returns -1.
+// If no ID is available, returns -1. If IDProviderName is non-empty,
+// it returns the IDProvider regardless of its value, to take into account provider-only metadata.
 func (m *Metadata) ID() int {
-	// The anilist id should never be 0 (for now) but just in case
+	// Sometimes there is no provider metadata ID (mangadex), so check for the name.
+	if m.IDProviderName != "" {
+		return m.IDProvider
+	}
+	// The anilist id should never be 0 (for now) but just in case.
 	if m.IDAl > 0 {
 		return m.IDAl
 	}
 	if m.IDMal > 0 {
 		return m.IDMal
-	}
-	if m.IDProvider > 0 && m.IDProviderName != "" {
-		return m.IDProvider
 	}
 	return -1
 }
@@ -211,16 +215,18 @@ func (m *Metadata) ID() int {
 // Checks for an ID in the following order:
 // Anilist -> MyAnimeList -> Provider (custom)
 //
-// If no ID available, returns empty string.
+// If no ID available, returns empty string. If IDProviderName is non-empty,
+// it returns that as the first option, to take into account provider-only metadata.
 func (m *Metadata) IDSource() string {
+	// Same as ID() logic.
+	if m.IDProviderName != "" {
+		return m.IDProviderName
+	}
 	if m.IDAl > 0 {
 		return IDSourceAnilist
 	}
 	if m.IDMal > 0 {
 		return IDSourceMyAnimeList
-	}
-	if m.IDProvider > 0 && m.IDProviderName != "" {
-		return m.IDProviderName
 	}
 	return ""
 }
@@ -251,6 +257,7 @@ func (m *Metadata) Validate() error {
 		return Error{fmt.Errorf("Status must be non-empty")}
 	}
 	// TODO: also check for ID/IDSource? Metadata.String allows for missing id...
+	//
 	// if m.ID() == -1 {
 	// 	return Error{fmt.Errorf("ID must be greater than zero")}
 	// }
