@@ -244,9 +244,10 @@ func (m *Metadata) Validate() error {
 	if m.Title() == "" {
 		return Error{fmt.Errorf("Title must be non-empty")}
 	}
-	if m.Description == "" {
-		return Error{fmt.Errorf("Description must be non-empty")}
-	}
+	// Some descriptions are empty even on actual metadata providers
+	// if m.Description == "" {
+	// 	return Error{fmt.Errorf("Description must be non-empty")}
+	// }
 	if len(m.Authors) == 0 {
 		return Error{fmt.Errorf("Authors must be non-empty")}
 	}
