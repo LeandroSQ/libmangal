@@ -6,6 +6,6 @@ type Error struct {
 	E error
 }
 
-func (a Error) Error() string {
-	return fmt.Sprintf("anilist error: %s", a.E.Error())
+func (e Error) Error() string {
+	return fmt.Sprintf("anilist error: %s", e.E.Error())
 }

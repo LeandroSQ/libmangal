@@ -121,7 +121,7 @@ func (c *Client) SearchMetadata(
 // DownloadChapter downloads and saves chapter to the specified
 // directory in the given format.
 //
-// It will return resulting chapter path joined with DownloadOptions.Directory
+// It will return resulting chapter downloaded information via metadata.DownloadedChapter.
 func (c *Client) DownloadChapter(
 	ctx context.Context,
 	chapter mangadata.Chapter,
@@ -166,10 +166,6 @@ func (c *Client) DownloadChapter(
 		tmpClient.FS(), options.Directory,
 	); err != nil {
 		return nil, err
-	}
-
-	if options.ReadAfter {
-		return downChap, c.ReadChapter(ctx, downChap.Path(), chapter, options.ReadOptions)
 	}
 
 	return downChap, nil
@@ -248,6 +244,15 @@ func (c *Client) DownloadPage(
 }
 
 // ReadChapter opens the chapter for reading and marks it as read if authorized.
+// It will use os default app for resulting mimetype.
+//
+// E.g. `xdg-open` for Linux.
+//
+// It will also sync read chapter with your Anilist profile
+// if it's configured.
+//
+// Note, that underlying filesystem must be mapped with OsFs
+// in order for os to open it.
 func (c *Client) ReadChapter(
 	ctx context.Context,
 	path string,

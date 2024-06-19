@@ -93,20 +93,6 @@ type DownloadOptions struct {
 	// downloading with FormatCBZ.
 	WriteComicInfoXML bool
 
-	// ReadAfter will open the chapter for reading after it was downloaded.
-	// It will use os default app for resulting mimetype.
-	//
-	// E.g. `xdg-open` for Linux.
-	//
-	// It will also sync read chapter with your Anilist profile
-	// if it's configured. See also ReadIncognito.
-	//
-	// Note, that underlying filesystem must be mapped with OsFs
-	// in order for os to open it.
-	ReadAfter bool
-
-	ReadOptions ReadOptions
-
 	// ComicInfoXMLOptions options to use for ComicInfo.xml when WriteComicInfoXml is true.
 	ComicInfoXMLOptions metadata.ComicInfoXMLOptions
 
@@ -132,11 +118,9 @@ func DefaultDownloadOptions() DownloadOptions {
 		WriteSeriesJSON:         false,
 		SkipSeriesJSONIfOngoing: true, // Sensible default to avoid external parser issues.
 		WriteComicInfoXML:       false,
-		ReadAfter:               false,
 		ImageTransformer: func(img []byte) ([]byte, error) {
 			return img, nil
 		},
-		ReadOptions:         DefaultReadOptions(),
 		ComicInfoXMLOptions: metadata.DefaultComicInfoOptions(),
 	}
 }
