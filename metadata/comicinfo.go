@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// Chapter is  the ComicInfoXML extra chapter information.
+// Chapter is the ComicInfoXML extra chapter information.
 type Chapter struct {
 	Title           string  `json:"title"`
 	URL             string  `json:"url"`

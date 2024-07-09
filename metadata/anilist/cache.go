@@ -30,14 +30,14 @@ func (a *Anilist) cacheSetTitle(
 	return a.options.TitleToIDStore.Set(title, id)
 }
 
-func (a *Anilist) cacheStatusId(
+func (a *Anilist) cacheStatusID(
 	id int,
 ) (manga Manga, found bool, err error) {
 	found, err = a.options.IDToMangaStore.Get(strconv.Itoa(id), &manga)
 	return
 }
 
-func (a *Anilist) cacheSetId(
+func (a *Anilist) cacheSetID(
 	id int,
 	manga Manga,
 ) error {

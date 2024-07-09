@@ -45,13 +45,13 @@ type Manga interface {
 
 	// Metadata gets the associated metadata of the manga.
 	//
-	// This is the basic metadata that is found in the provider itself.
-	// It's a pointer due to its changing nature.
+	// In its unchanged state, it's the basic metadata that is found in the provider itself.
 	Metadata() *metadata.Metadata
 
 	// SetMetadata will replace the current metadata.
 	//
-	// Useful when updating metadata fields.
+	// Useful when updating metadata fields. Its implementation should keep the
+	// same pointer address intact, only updating the underlying data.
 	SetMetadata(metadata *metadata.Metadata)
 }
 

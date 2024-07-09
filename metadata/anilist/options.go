@@ -13,24 +13,22 @@ type Options struct {
 	// HTTPClient is a http client used for Anilist API
 	HTTPClient *http.Client
 
-	// QueryToIDsStore maps query to ids.
-	// single query to multiple ids.
+	// QueryToIDsStore maps manga query to multiple anilit ids.
 	//
 	// ["berserk" => [7, 42, 69], "death note" => [887, 3, 134]]
 	QueryToIDsStore gokv.Store
 
-	// TitleToIDStore maps title to id.
-	// single title to single id.
+	// TitleToIDStore maps manga title to anilist id.
 	//
 	// ["berserk" => 7, "death note" => 3]
 	TitleToIDStore gokv.Store
 
-	// IDToMangaStore maps id to manga.
-	// single id to single manga.
+	// IDToMangaStore maps anilist id to anilist manga.
 	//
 	// [7 => "{title: ..., image: ..., ...}"]
 	IDToMangaStore gokv.Store
 
+	// AccessTokenStore holds the authentication data.
 	AccessTokenStore gokv.Store
 
 	// LogWriter used for logs progress

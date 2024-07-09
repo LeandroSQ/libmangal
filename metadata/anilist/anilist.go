@@ -51,7 +51,7 @@ func (a *Anilist) SearchByID(
 	ctx context.Context,
 	id int,
 ) (Manga, bool, error) {
-	manga, found, err := a.cacheStatusId(id)
+	manga, found, err := a.cacheStatusID(id)
 	if err != nil {
 		return Manga{}, false, Error{err}
 	}
@@ -67,7 +67,7 @@ func (a *Anilist) SearchByID(
 		return Manga{}, false, nil
 	}
 
-	err = a.cacheSetId(id, manga)
+	err = a.cacheSetID(id, manga)
 	if err != nil {
 		return Manga{}, false, Error{err}
 	}
@@ -137,7 +137,7 @@ func (a *Anilist) SearchMangas(
 
 	ids = make([]int, len(mangas))
 	for i, manga := range mangas {
-		err := a.cacheSetId(manga.ID, manga)
+		err := a.cacheSetID(manga.ID, manga)
 		if err != nil {
 			return nil, Error{err}
 		}
@@ -264,7 +264,13 @@ func sendRequest[Data any](
 
 // SearchByManga is a convenience method to search given a Manga.
 //
-// If manga contains non-nil metadata, it will try to search by its Anilist ID first if available, then by title.
+// Tries to search anilist manga in the following order:
+//
+// 1. If the manga contains non-nil metadata, by its Anilist ID if available.
+//
+// 2. If the manga title (priority on AnilistSearch field, then Title field) is binded to an Anilist ID.
+//
+// 3. Otherwise find closest anilist manga (FindClosestManga) by using the manga Title (priority on AnilistSearch field) field.
 func (a *Anilist) SearchByManga(
 	ctx context.Context,
 	manga mangadata.Manga,
@@ -279,14 +285,12 @@ func (a *Anilist) SearchByManga(
 		}
 	}
 
-	var title string
 	// Else try to search by the title, this doesn't ensure
 	// that the found anilist manga is 100% corresponding to
 	// the manga requested, there are some instances in which
 	// the result is wrong
-	if manga.Info().AnilistSearch != "" {
-		title = manga.Info().AnilistSearch
-	} else {
+	title := manga.Info().AnilistSearch
+	if title == "" {
 		title = manga.Info().Title
 	}
 
@@ -305,7 +309,7 @@ func (a *Anilist) FindClosestManga(
 		return Manga{}, false, Error{err}
 	}
 	if found {
-		manga, found, err := a.cacheStatusId(id)
+		manga, found, err := a.cacheStatusID(id)
 		if err != nil {
 			return Manga{}, false, Error{err}
 		}
@@ -372,9 +376,10 @@ func (a *Anilist) findClosestManga(
 	return Manga{}, false, nil
 }
 
-// BindTitleWithID sets a given id to a title, so on each title search the same manga with that id is obtained.
-func (a *Anilist) BindTitleWithID(title string, mangaID int) error {
-	err := a.options.TitleToIDStore.Set(title, mangaID)
+// BindTitleWithID sets a given id to a title,
+// so on each title search the same anilist manga with that id is obtained.
+func (a *Anilist) BindTitleWithID(title string, id int) error {
+	err := a.cacheSetTitle(title, id)
 	if err != nil {
 		return Error{err}
 	}
@@ -382,8 +387,8 @@ func (a *Anilist) BindTitleWithID(title string, mangaID int) error {
 	return nil
 }
 
-// SetMangaProgress sets the reading progress for a given manga id.
-func (a *Anilist) SetMangaProgress(ctx context.Context, mangaID, chapterNumber int) error {
+// SetMangaProgress sets the reading progress for a given anilist id.
+func (a *Anilist) SetMangaProgress(ctx context.Context, id, chapterNumber int) error {
 	if !a.IsAuthorized() {
 		return Error{errors.New("not authorized")}
 	}
@@ -398,7 +403,7 @@ func (a *Anilist) SetMangaProgress(ctx context.Context, mangaID, chapterNumber i
 		anilistRequestBody{
 			Query: anilistMutationSaveProgress,
 			Variables: map[string]any{
-				"id":       mangaID,
+				"id":       id,
 				"progress": chapterNumber,
 			},
 		},

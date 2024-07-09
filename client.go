@@ -100,7 +100,13 @@ func (c *Client) Info() ProviderInfo {
 
 // SearchMetadata will search for metadata on the available metadata providers.
 //
-// If manga contains non-nil metadata, it will try to search by ID first if available, then by title.
+// Tries to search anilist manga in the following order:
+//
+// 1. If the manga contains non-nil metadata, by its Anilist ID if available.
+//
+// 2. If the manga title (priority on AnilistSearch field, then Title field) is binded to an Anilist ID.
+//
+// 3. Otherwise find closest anilist manga (FindClosestManga) by using the manga Title (priority on AnilistSearch field) field.
 func (c *Client) SearchMetadata(
 	ctx context.Context,
 	manga mangadata.Manga,
@@ -132,15 +138,15 @@ func (c *Client) DownloadChapter(
 	manga := chapter.Volume().Manga()
 	// Found metadata will be replacing the incoming one, even when no metadata is found (nil)
 	if options.SearchMetadata {
-		meta, err := c.SearchMetadata(ctx, manga)
+		m, err := c.SearchMetadata(ctx, manga)
 		if err != nil {
 			return nil, err
 		}
-		manga.SetMetadata(meta)
+		manga.SetMetadata(m)
 	}
 	// Even after a metadata search, check if it is valid (nil for example)
-	if manga.Metadata().Validate() != nil && options.Strict {
-		return nil, fmt.Errorf("no valid metadata for manga %q: %s", manga, manga.Metadata().Validate())
+	if err := manga.Metadata().Validate(); err != nil && options.Strict {
+		return nil, fmt.Errorf("no valid metadata for manga %q: %s", manga, err.Error())
 	}
 
 	// a temp client is used to download everything
@@ -259,7 +265,7 @@ func (c *Client) ReadChapter(
 	chapter mangadata.Chapter,
 	options ReadOptions,
 ) error {
-	c.logger.Log("opening chapter with the default app")
+	c.logger.Log("opening chapter %q from %s with the default app", chapter, path)
 
 	err := open.Run(path)
 	if err != nil {
