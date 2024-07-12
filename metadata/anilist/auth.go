@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"net/http"
 )
 
@@ -39,7 +37,7 @@ func (a *Anilist) Authorize(
 		{"code", credentials.Code},
 	} {
 		if t.value == "" {
-			return Error{fmt.Errorf("%s is empty", t.name)}
+			return Error(t.name + "s is empty")
 		}
 	}
 
@@ -51,7 +49,7 @@ func (a *Anilist) Authorize(
 		"redirect_uri":  "https://anilist.co/api/v2/oauth/pin",
 	})
 	if err != nil {
-		return Error{err}
+		return Error(err.Error())
 	}
 
 	request, err := http.NewRequestWithContext(
@@ -61,7 +59,7 @@ func (a *Anilist) Authorize(
 		bytes.NewBuffer(body),
 	)
 	if err != nil {
-		return Error{err}
+		return Error(err.Error())
 	}
 
 	request.Header.Set("Content-Type", "application/json")
@@ -69,12 +67,12 @@ func (a *Anilist) Authorize(
 
 	response, err := a.options.HTTPClient.Do(request)
 	if err != nil {
-		return Error{err}
+		return Error(err.Error())
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return Error{errors.New(response.Status)}
+		return Error("non-OK status response code: " + response.Status)
 	}
 
 	var authResponse struct {
@@ -83,7 +81,7 @@ func (a *Anilist) Authorize(
 
 	err = json.NewDecoder(response.Body).Decode(&authResponse)
 	if err != nil {
-		return Error{err}
+		return Error(err.Error())
 	}
 
 	if err := a.options.AccessTokenStore.Set(anilistStoreAccessCodeStoreKey, authResponse.AccessToken); err != nil {

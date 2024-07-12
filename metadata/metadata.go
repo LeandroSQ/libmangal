@@ -1,8 +1,9 @@
 package metadata
 
 import (
+	"errors"
 	"fmt"
-	"reflect"
+	"strconv"
 )
 
 const (
@@ -22,9 +23,23 @@ const (
 	StatusHiatus         Status = "HIATUS"
 )
 
+type IDSource uint8
+
 const (
-	IDSourceAnilist     = "al"
-	IDSourceMyAnimeList = "mal"
+	IDSourceProvider IDSource = iota + 1
+	IDSourceAnilist
+	IDSourceMyAnimeList
+	IDSourceKitsu
+	IDSourceMangaUpdates
+	IDSourceAnimePlanet
+)
+
+const (
+	IDCodeAnilist      string = "al"
+	IDCodeMyAnimeList  string = "mal"
+	IDCodeKitsu        string = "kt"
+	IDCodeMangaUpdates string = "mu"
+	IDCodeAnimePlanet  string = "ap"
 )
 
 // Date is a simple date holder.
@@ -38,197 +53,160 @@ func (d Date) String() string {
 	return fmt.Sprintf("%d-%02d-%02d", d.Year, d.Month, d.Day)
 }
 
+// ID is the ID information of the metadata.
+type ID struct {
+	// ID id of the manga in the provider.
+	// Must be non-empty unless IDSource is IDSourceProvider.
+	// Must be an integer unless IDSource is IDSourceAnimePlanet.
+	IDRaw string
+
+	// IDSource of the metadata.
+	// Must be non-zero.
+	IDSource IDSource
+
+	// IDCode of the metadata provider name.
+	// Must be non-empty.
+	//
+	// For the Provider metadata, the code must be short, ideally 2-3 chars.
+	IDCode string
+}
+
+// Value is the integer value of the ID.
+//
+// If the IDSource is either IDSourceProvider
+// or IDSourceAnimePlanet then returns 0.
+func (id ID) Value() int {
+	// IDRaw already validated
+	i, _ := strconv.Atoi(id.IDRaw)
+	return i
+}
+
+func (id ID) validate() error {
+	if id.IDCode == "" {
+		return errors.New("IDCode must be non-empty")
+	}
+
+	switch id.IDSource {
+	case 0:
+		return errors.New("IDSource must be non-zero")
+	case IDSourceProvider:
+		return nil
+	case IDSourceAnilist, IDSourceMyAnimeList, IDSourceKitsu, IDSourceMangaUpdates:
+		i, err := strconv.Atoi(id.IDRaw)
+		if err != nil {
+			return errors.New("ID must be an integer")
+		}
+		if i < 1 {
+			return errors.New("ID must be a non-zero positive integer")
+		}
+	case IDSourceAnimePlanet:
+		if id.IDRaw == "" {
+			return errors.New("AnimePlanet ID must be non-empty")
+		}
+	default:
+		return errors.New("unexpected IDsource")
+	}
+	return nil
+}
+
 // Metadata is the general metadata information about a manga.
 //
 // In its most basic form, it's just the metadata that is available from the provider.
 // It contains the necessary fields to build the series.json and ComicInfo.xml files.
-type Metadata struct {
-	// English is the english title of the manga.
-	EnglishTitle string `json:"english_title"`
+type Metadata interface {
+	// String is the short representation of the manga.
+	// Must be non-empty.
+	//
+	// At the minimum it should return "`Title` (`Year`)", else
+	// "`Title` (`Year`) [`IDCode`id-`ID`]" if available.
+	String() string
 
-	// Romaji is the romanized title of the manga.
-	RomajiTitle string `json:"romaji_title"`
+	// Title is the English title of the manga.
+	// Must be non-empty.
+	//
+	// If English is not available, then in in order of availability:
+	// Romaji (the romanized title) or Native (usually Kanji).
+	Title() string
 
-	// Native is the native title of the manga. (Usually in kanji)
-	NativeTitle string `json:"native_title"`
-
-	// AlternateTitles that are known, in order of relevance.
-	AlternateTitles []string `json:"alternate_titles"`
+	// AlternateTitles is a list of alternative titles in order of relevance.
+	AlternateTitles() []string
 
 	// Score is the community score for the manga.
 	//
 	// Accepted values are between 0.0 and 5.0.
-	Score float32 `json:"score"`
+	Score() float32
 
 	// Description is the description/summary for the manga.
-	Description string `json:"description"`
+	Description() string
 
-	// CoverImage is the cover image of the manga.
-	CoverImage string `json:"cover_image"`
+	// Cover is the cover image of the manga.
+	Cover() string
 
-	// BannerImage is the banner image of the manga.
-	BannerImage string `json:"banner_image"`
+	// Banner is the banner image of the manga.
+	Banner() string
 
 	// Tags is the list of tags associated with the manga.
-	Tags []string `json:"tags"`
+	Tags() []string
 
 	// Genres is the list of genres associated with the manga.
-	Genres []string `json:"genres"`
+	Genres() []string
 
 	// Characters is the list of characters, in order of relevance.
-	Characters []string `json:"characters"`
+	Characters() []string
 
 	// Authors (or Writers) is the list of authors, in order of relevance.
 	// Must contain at least one artist.
-	Authors []string `json:"authors"`
+	Authors() []string
 
 	// Artists is the list of artists, in order of relevance.
-	Artists []string `json:"artists"`
+	Artists() []string
 
 	// Translators is the list of translators, in order of relevance.
-	Translators []string `json:"translators"`
+	Translators() []string
 
 	// Letterers is the list of letterers, in order of relevance.
-	Letterers []string `json:"letterers"`
+	Letterers() []string
 
 	// StartDate is the date the manga started publishing.
-	StartDate Date `json:"start_date"`
+	// Must be non-zero.
+	StartDate() Date
 
 	// EndDate is the date the manga ended publishing.
-	EndDate Date `json:"end_date"`
+	EndDate() Date
 
 	// Publisher of the manga.
-	Publisher string `json:"publisher"`
+	Publisher() string
 
 	// Current status of the manga.
+	// Must be non-empty.
 	//
 	// One of: FINISHED, RELEASING, NOT_YET_RELEASED, CANCELLED, HIATUS
-	Status Status `json:"status"`
+	Status() Status
 
 	// Format the original publication.
 	//
 	// For example: TBP, HC, Web, Digital, etc..
-	Format string `json:"format"`
+	Format() string
 
 	// Country of origin of the manga. ISO 3166-1 alpha-2 country code.
-	Country string `json:"country"`
+	Country() string
 
 	// Chapter count until this point.
-	Chapters int `json:"chapters"`
+	Chapters() int
 
 	// Extra notes to be added.
-	Notes string `json:"notes"`
+	Notes() string
 
 	// URL is the source URL of the metadata.
-	URL string `json:"url"`
+	URL() string
 
-	// IDProvider is the provider assigned ID
-	// (used when no other metadata ID is available),
-	// could be arbitrary.
-	//
-	// If set, IDProviderName must also be set and it
-	// is considered that this metadata is from the provider.
-	IDProvider int `json:"id_provider"`
+	// ID is the ID information of the metadata.
+	// Must be valid (ID.Validate).
+	ID() ID
 
-	// IDProviderName is the provider ID name,
-	// goes alongside IDProvider, could be arbitrary.
-	//
-	// Should be less than 5 characters, ideally just 2-3.
-	//
-	// If set, it is considered that this metadata is from the provider.
-	// Regardless of IDProvider value.
-	IDProviderName string `json:"id_provider_name"`
-
-	// IDAl is the Anilist ID.
-	//
-	// Must be > 0.
-	IDAl int `json:"id_al"`
-
-	// IDMal is the MyAnimeList ID.
-	//
-	// Must be > 0.
-	IDMal int `json:"id_mal"`
-}
-
-// String representation should be something short and informative.
-//
-// Returns representation in the style of "Title (Year) [IDType-ID]",
-// if Year or ID is missing, then they're omitted.
-func (m *Metadata) String() string {
-	title := m.Title()
-	year := m.StartDate.Year
-	idSource := m.IDSource()
-	id := m.ID()
-
-	var yearStr string
-	if year != 0 {
-		yearStr = fmt.Sprintf(" (%d)", year)
-	}
-	var idStr string
-	if id > 0 && idSource != "" {
-		idStr = fmt.Sprintf(" [%sid-%d]", idSource, id)
-	}
-
-	return fmt.Sprintf("%s%s%s", title, yearStr, idStr)
-}
-
-// Title returns the title of the manga.
-//
-// Order of priority:
-// English -> Romaji -> Native
-func (m *Metadata) Title() string {
-	if m.EnglishTitle != "" {
-		return m.EnglishTitle
-	}
-	if m.RomajiTitle != "" {
-		return m.RomajiTitle
-	}
-	return m.NativeTitle
-}
-
-// ID of the external metadata.
-//
-// Checks for an ID in the following order:
-// Anilist -> MyAnimeList -> Provider (custom)
-//
-// If no ID is available, returns -1. If IDProviderName is non-empty,
-// it returns the IDProvider regardless of its value, to take into account provider-only metadata.
-func (m *Metadata) ID() int {
-	// Sometimes there is no provider metadata ID (mangadex), so check for the name.
-	if m.IDProviderName != "" {
-		return m.IDProvider
-	}
-	// The anilist id should never be 0 (for now) but just in case.
-	if m.IDAl > 0 {
-		return m.IDAl
-	}
-	if m.IDMal > 0 {
-		return m.IDMal
-	}
-	return -1
-}
-
-// IDSource get the type of the external metadata ID.
-//
-// For example "al" for Anilist or "mal" for MyAnimeList.
-//
-// Checks for an ID in the following order:
-// Anilist -> MyAnimeList -> Provider (custom)
-//
-// If no ID available, returns empty string. If IDProviderName is non-empty,
-// it returns that as the first option, to take into account provider-only metadata.
-func (m *Metadata) IDSource() string {
-	// Same as ID() logic.
-	if m.IDProviderName != "" {
-		return m.IDProviderName
-	}
-	if m.IDAl > 0 {
-		return IDSourceAnilist
-	}
-	if m.IDMal > 0 {
-		return IDSourceMyAnimeList
-	}
-	return ""
+	// ExtraIDs is a list of extra available IDs in the metadata provider.
+	// Each extra ID must be valid (ID.Validate).
+	ExtraIDs() []ID
 }
 
 // Validate will make sure the Metadata is valid/usable
@@ -236,55 +214,34 @@ func (m *Metadata) IDSource() string {
 //
 // At the very least checks that: Title, Description, Authors,
 // StartDate and Status are non-empty/non-zero.
-func (m *Metadata) Validate() error {
+func Validate(m Metadata) error {
 	if m == nil {
-		return Error{fmt.Errorf("Metadata is nil")}
+		return Error("Metadata is nil")
 	}
 
+	if m.String() == "" {
+		return Error("String representation must be non-empty")
+	}
 	if m.Title() == "" {
-		return Error{fmt.Errorf("Title must be non-empty")}
+		return Error("Title must be non-empty")
 	}
-	// Some descriptions are empty even on actual metadata providers
-	// if m.Description == "" {
-	// 	return Error{fmt.Errorf("Description must be non-empty")}
-	// }
-	if len(m.Authors) == 0 {
-		return Error{fmt.Errorf("Authors must be non-empty")}
+	if len(m.Authors()) == 0 {
+		return Error("Authors must contain at least one author")
 	}
-	if m.StartDate == (Date{}) {
-		return Error{fmt.Errorf("StartDate must be non-zero")}
+	if m.StartDate() == (Date{}) {
+		return Error("StartDate must be non-zero")
 	}
-	if m.Status == "" {
-		return Error{fmt.Errorf("Status must be non-empty")}
-	}
-	// TODO: also check for ID/IDSource? Metadata.String allows for missing id...
-	//
-	// if m.ID() == -1 {
-	// 	return Error{fmt.Errorf("ID must be greater than zero")}
-	// }
-	// if m.IDSource() == "" {
-	// 	return Error{fmt.Errorf("IDSource must be non-empty")}
-	// }
-	return nil
-}
-
-// ValidityScore returns a value that represents the amount
-// of Metadata fields set.
-//
-// 0 means it's the zero-valued Metadata, -1 that it's null.
-func (m *Metadata) ValidityScore() int {
-	if m == nil {
-		return -1
+	if m.Status() == "" {
+		return Error("Status must be non-empty")
 	}
 
-	s := 0
-	mValue := reflect.ValueOf(*m)
-	for i := 0; i < mValue.NumField(); i++ {
-		// fieldName := mValue.Type().Field(i).Name
-		fieldValue := mValue.Field(i).Interface()
-		if !reflect.DeepEqual(fieldValue, reflect.Zero(mValue.Field(i).Type()).Interface()) {
-			s += 1
+	if err := m.ID().validate(); err != nil {
+		return Error(err.Error())
+	}
+	for _, id := range m.ExtraIDs() {
+		if err := id.validate(); err != nil {
+			return Error("one of the ExtraIDs is invalid: " + err.Error())
 		}
 	}
-	return s
+	return nil
 }

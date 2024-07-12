@@ -15,17 +15,17 @@ type Chapter struct {
 	Pages           int     `json:"pages"`
 }
 
-func (m *Metadata) ComicInfoXML(chapter Chapter) ComicInfoXML {
+func ToComicInfoXML(m Metadata, chapter Chapter) ComicInfoXML {
 	var date Date
 	// If no chapter date is defined, use Metadata.StartDate
 	if chapter.Date != (Date{}) {
 		date = chapter.Date
 	} else {
-		date = m.StartDate
+		date = m.StartDate()
 	}
 
 	// If ScanlationGroup is set, use it as the only "translators" instead of Anilist Translators list
-	translators := m.Translators
+	translators := m.Translators()
 	if chapter.ScanlationGroup != "" {
 		translators = []string{chapter.ScanlationGroup}
 	}
@@ -37,30 +37,30 @@ func (m *Metadata) ComicInfoXML(chapter Chapter) ComicInfoXML {
 		Series:          m.Title(),
 		Number:          chapter.Number,
 		Web:             chapter.URL,
-		Genres:          m.Genres,
-		Summary:         m.Description,
-		Count:           m.Chapters,
+		Genres:          m.Genres(),
+		Summary:         m.Description(),
+		Count:           m.Chapters(),
 		PageCount:       chapter.Pages,
-		Characters:      m.Characters,
+		Characters:      m.Characters(),
 		Year:            date.Year,
 		Month:           date.Month,
 		Day:             date.Day,
-		Publisher:       m.Publisher,
+		Publisher:       m.Publisher(),
 		LanguageISO:     "",
 		StoryArc:        "",
 		StoryArcNumber:  0,
 		ScanInformation: "",
 		AgeRating:       "",
-		CommunityRating: m.Score,
+		CommunityRating: m.Score(),
 		Review:          "",
 		GTIN:            "",
-		Format:          m.Format,
-		Writers:         m.Authors,
-		Pencillers:      m.Artists,
-		Letterers:       m.Letterers,
+		Format:          m.Format(),
+		Writers:         m.Authors(),
+		Pencillers:      m.Artists(),
+		Letterers:       m.Letterers(),
 		Translators:     translators,
-		Tags:            m.Tags,
-		Notes:           m.Notes,
+		Tags:            m.Tags(),
+		Notes:           m.Notes(),
 	}
 }
 

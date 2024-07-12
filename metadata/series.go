@@ -7,11 +7,11 @@ import (
 	"time"
 )
 
-func (m *Metadata) SeriesJSON() SeriesJSON {
+func ToSeriesJSON(m Metadata) SeriesJSON {
 	var status string
 	// TODO: need to better handle these statuses,
 	// series.json only supports "ended" and "continuing"
-	switch m.Status {
+	switch m.Status() {
 	case StatusFinished:
 		status = "Ended"
 	case StatusReleasing:
@@ -24,19 +24,19 @@ func (m *Metadata) SeriesJSON() SeriesJSON {
 	// "November 2011 - July 2016"
 	// "June 2021 - Present"
 	var pubEndDate string
-	if m.EndDate != (Date{}) {
+	if m.EndDate() != (Date{}) {
 		pubEndDate = fmt.Sprintf(
 			"%s %d",
-			time.Month(m.EndDate.Month).String(),
-			m.EndDate.Year)
+			time.Month(m.EndDate().Month).String(),
+			m.EndDate().Year)
 	} else {
 		pubEndDate = "Present"
 	}
 
 	publicationRun := fmt.Sprintf(
 		"%s %d - %s",
-		time.Month(m.StartDate.Month).String(),
-		m.StartDate.Year,
+		time.Month(m.StartDate().Month).String(),
+		m.StartDate().Year,
 		pubEndDate,
 	)
 
@@ -44,15 +44,15 @@ func (m *Metadata) SeriesJSON() SeriesJSON {
 	return SeriesJSON{
 		Type:                 "comicSeries",
 		Name:                 m.Title(),
-		DescriptionFormatted: m.Description,
-		DescriptionText:      m.Description,
+		DescriptionFormatted: m.Description(),
+		DescriptionText:      m.Description(),
 		Status:               status,
-		Year:                 m.StartDate.Year,
-		ComicImage:           m.CoverImage,
-		Publisher:            m.Publisher,
-		ComicID:              m.ID(),
+		Year:                 m.StartDate().Year,
+		ComicImage:           m.Cover(),
+		Publisher:            m.Publisher(),
+		ComicID:              m.ID().Value(),
 		BookType:             "Print",
-		TotalIssues:          m.Chapters,
+		TotalIssues:          m.Chapters(),
 		PublicationRun:       publicationRun,
 	}
 }

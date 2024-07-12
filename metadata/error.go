@@ -1,11 +1,7 @@
 package metadata
 
-import "fmt"
-
-type Error struct {
-	E error
-}
+type Error string
 
 func (e Error) Error() string {
-	return fmt.Sprintf("metadata error: %s", e.E.Error())
+	return "metadata error: " + string(e)
 }

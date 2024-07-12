@@ -110,7 +110,7 @@ func (c *Client) Info() ProviderInfo {
 func (c *Client) SearchMetadata(
 	ctx context.Context,
 	manga mangadata.Manga,
-) (*metadata.Metadata, error) {
+) (metadata.Metadata, error) {
 	c.logger.Log("searching metadata for manga %q", manga)
 	anilistManga, found, err := c.Anilist().SearchByManga(ctx, manga)
 	if err != nil {
@@ -121,7 +121,7 @@ func (c *Client) SearchMetadata(
 		return nil, nil
 	}
 
-	return anilistManga.Metadata(), nil
+	return &anilistManga, nil
 }
 
 // DownloadChapter downloads and saves chapter to the specified
@@ -145,7 +145,7 @@ func (c *Client) DownloadChapter(
 		manga.SetMetadata(m)
 	}
 	// Even after a metadata search, check if it is valid (nil for example)
-	if err := manga.Metadata().Validate(); err != nil && options.Strict {
+	if err := metadata.Validate(manga.Metadata()); err != nil && options.Strict {
 		return nil, fmt.Errorf("no valid metadata for manga %q: %s", manga, err.Error())
 	}
 

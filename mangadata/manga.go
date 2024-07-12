@@ -46,13 +46,13 @@ type Manga interface {
 	// Metadata gets the associated metadata of the manga.
 	//
 	// In its unchanged state, it's the basic metadata that is found in the provider itself.
-	Metadata() *metadata.Metadata
+	Metadata() metadata.Metadata
 
 	// SetMetadata will replace the current metadata.
 	//
 	// Useful when updating metadata fields. Its implementation should keep the
 	// same pointer address intact, only updating the underlying data.
-	SetMetadata(metadata *metadata.Metadata)
+	SetMetadata(metadata metadata.Metadata)
 }
 
 // MangaWithSeriesJSON is a Manga with an already associated SeriesJSON.

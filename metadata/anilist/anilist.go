@@ -13,6 +13,7 @@ import (
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/luevano/libmangal/mangadata"
+	"github.com/luevano/libmangal/metadata"
 )
 
 const anilistAPIURL = "https://graphql.anilist.co"
@@ -53,7 +54,7 @@ func (a *Anilist) SearchByID(
 ) (Manga, bool, error) {
 	manga, found, err := a.cacheStatusID(id)
 	if err != nil {
-		return Manga{}, false, Error{err}
+		return Manga{}, false, Error(err.Error())
 	}
 	if found {
 		return manga, true, nil
@@ -61,7 +62,7 @@ func (a *Anilist) SearchByID(
 
 	manga, ok, err := a.searchByID(ctx, id)
 	if err != nil {
-		return Manga{}, false, Error{err}
+		return Manga{}, false, Error(err.Error())
 	}
 	if !ok {
 		return Manga{}, false, nil
@@ -69,7 +70,7 @@ func (a *Anilist) SearchByID(
 
 	err = a.cacheSetID(id, manga)
 	if err != nil {
-		return Manga{}, false, Error{err}
+		return Manga{}, false, Error(err.Error())
 	}
 
 	return manga, true, nil
@@ -114,7 +115,7 @@ func (a *Anilist) SearchMangas(
 
 	ids, found, err := a.cacheStatusQuery(query)
 	if err != nil {
-		return nil, Error{err}
+		return nil, Error(err.Error())
 	}
 	if found {
 		var mangas []Manga
@@ -137,17 +138,17 @@ func (a *Anilist) SearchMangas(
 
 	ids = make([]int, len(mangas))
 	for i, manga := range mangas {
-		err := a.cacheSetID(manga.ID, manga)
+		err := a.cacheSetID(manga.IDProvider, manga)
 		if err != nil {
-			return nil, Error{err}
+			return nil, Error(err.Error())
 		}
 
-		ids[i] = manga.ID
+		ids[i] = manga.IDProvider
 	}
 
 	err = a.cacheSetQuery(query, ids)
 	if err != nil {
-		return nil, Error{err}
+		return nil, Error(err.Error())
 	}
 
 	return mangas, nil
@@ -276,12 +277,15 @@ func (a *Anilist) SearchByManga(
 	manga mangadata.Manga,
 ) (Manga, bool, error) {
 	a.logger.Log("finding manga by (libmangal) manga on Anilist")
-	metadata := manga.Metadata()
-	// Try to search by Anilist ID if it is provided
-	if metadata != nil && metadata.IDAl != 0 {
-		anilistManga, found, err := a.SearchByID(ctx, metadata.IDAl)
-		if err == nil && found {
-			return anilistManga, true, nil
+	meta := manga.Metadata()
+
+	// Try to search by Anilist ID if it is available
+	for _, id := range meta.ExtraIDs() {
+		if id.IDCode == metadata.IDCodeAnilist {
+			anilistManga, found, err := a.SearchByID(ctx, id.Value())
+			if err == nil && found {
+				return anilistManga, true, nil
+			}
 		}
 	}
 
@@ -306,12 +310,12 @@ func (a *Anilist) FindClosestManga(
 
 	id, found, err := a.cacheStatusTitle(title)
 	if err != nil {
-		return Manga{}, false, Error{err}
+		return Manga{}, false, Error(err.Error())
 	}
 	if found {
 		manga, found, err := a.cacheStatusID(id)
 		if err != nil {
-			return Manga{}, false, Error{err}
+			return Manga{}, false, Error(err.Error())
 		}
 
 		if found {
@@ -321,15 +325,15 @@ func (a *Anilist) FindClosestManga(
 
 	manga, ok, err := a.findClosestManga(ctx, title, 3, 3)
 	if err != nil {
-		return Manga{}, false, Error{err}
+		return Manga{}, false, Error(err.Error())
 	}
 	if !ok {
 		return Manga{}, false, nil
 	}
 
-	err = a.cacheSetTitle(title, manga.ID)
+	err = a.cacheSetTitle(title, manga.IDProvider)
 	if err != nil {
-		return Manga{}, false, Error{err}
+		return Manga{}, false, Error(err.Error())
 	}
 
 	return manga, true, nil
@@ -381,7 +385,7 @@ func (a *Anilist) findClosestManga(
 func (a *Anilist) BindTitleWithID(title string, id int) error {
 	err := a.cacheSetTitle(title, id)
 	if err != nil {
-		return Error{err}
+		return Error(err.Error())
 	}
 
 	return nil
@@ -390,7 +394,7 @@ func (a *Anilist) BindTitleWithID(title string, id int) error {
 // SetMangaProgress sets the reading progress for a given anilist id.
 func (a *Anilist) SetMangaProgress(ctx context.Context, id, chapterNumber int) error {
 	if !a.IsAuthorized() {
-		return Error{errors.New("not authorized")}
+		return Error("not authorized")
 	}
 
 	_, err := sendRequest[struct {
@@ -409,7 +413,7 @@ func (a *Anilist) SetMangaProgress(ctx context.Context, id, chapterNumber int) e
 		},
 	)
 	if err != nil {
-		return Error{err}
+		return Error(err.Error())
 	}
 
 	return nil

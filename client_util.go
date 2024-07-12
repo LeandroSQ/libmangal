@@ -117,14 +117,14 @@ func (c *Client) downloadChapterWithMetadata(
 		}
 	}
 
-	if manga.Metadata().Validate() != nil {
+	if metadata.Validate(manga.Metadata()) != nil {
 		downChap.SeriesJSONStatus = metadata.DownloadStatusMissingMetadata
 		downChap.CoverStatus = metadata.DownloadStatusMissingMetadata
 		downChap.BannerStatus = metadata.DownloadStatusMissingMetadata
 		return downChap, nil
 	}
 
-	skip := options.SkipSeriesJSONIfOngoing && manga.Metadata().Status == metadata.StatusReleasing
+	skip := options.SkipSeriesJSONIfOngoing && manga.Metadata().Status() == metadata.StatusReleasing
 	if options.WriteSeriesJSON && !skip {
 		path := filepath.Join(seriesJSONDir, metadata.FilenameSeriesJSON)
 		exists, err := existsFunc(path)
@@ -145,7 +145,7 @@ func (c *Client) downloadChapterWithMetadata(
 			if err != nil {
 				downChap.SeriesJSONStatus = metadata.DownloadStatusFailed
 				if options.Strict {
-					return nil, metadata.Error{err}
+					return nil, metadata.Error(err.Error())
 				}
 			}
 		}
@@ -171,7 +171,7 @@ func (c *Client) downloadChapterWithMetadata(
 			if err != nil {
 				downChap.CoverStatus = metadata.DownloadStatusFailed
 				if options.Strict {
-					return nil, metadata.Error{err}
+					return nil, metadata.Error(err.Error())
 				}
 			}
 		}
@@ -197,7 +197,7 @@ func (c *Client) downloadChapterWithMetadata(
 			if err != nil {
 				downChap.BannerStatus = metadata.DownloadStatusFailed
 				if options.Strict {
-					return nil, metadata.Error{err}
+					return nil, metadata.Error(err.Error())
 				}
 			}
 		}
@@ -275,7 +275,7 @@ func (c *Client) downloadChapter(
 		return ciXmlStatusSkip, c.saveZIP(downloadedPages, file)
 	case FormatCBZ:
 		var comicInfoXML *metadata.ComicInfoXML
-		if options.WriteComicInfoXML && chapter.Volume().Manga().Metadata().Validate() == nil {
+		if options.WriteComicInfoXML && metadata.Validate(chapter.Volume().Manga().Metadata()) == nil {
 			mangaChapter := chapter.Info()
 			metaChapter := metadata.Chapter{
 				Title:           mangaChapter.Title,
@@ -345,7 +345,7 @@ func (c *Client) getComicInfoXML(
 			return comicInfo, nil
 		}
 	}
-	return mangaChapter.Volume().Manga().Metadata().ComicInfoXML(metaChapter), nil
+	return metadata.ToComicInfoXML(mangaChapter.Volume().Manga().Metadata(), metaChapter), nil
 }
 
 // savePDF saves pages in FormatPDF
@@ -548,7 +548,7 @@ func getCover(manga mangadata.Manga) string {
 		return cover
 	}
 	if manga.Metadata() != nil {
-		cover = manga.Metadata().CoverImage
+		cover = manga.Metadata().Cover()
 	}
 	return cover
 }
@@ -559,7 +559,7 @@ func getBanner(manga mangadata.Manga) string {
 		return banner
 	}
 	if manga.Metadata() != nil {
-		banner = manga.Metadata().BannerImage
+		banner = manga.Metadata().Banner()
 	}
 	return banner
 }
@@ -585,7 +585,7 @@ func (c *Client) getSeriesJSON(
 		}
 	}
 
-	return manga.Metadata().SeriesJSON(), nil
+	return metadata.ToSeriesJSON(manga.Metadata()), nil
 }
 
 func (c *Client) writeSeriesJSON(
@@ -625,7 +625,7 @@ func (c *Client) markChapterAsRead(
 		return fmt.Errorf("can't find title for chapter %q", chapter)
 	}
 
-	manga, ok, err := c.Anilist().FindClosestManga(ctx, titleToSearch)
+	anilistManga, ok, err := c.Anilist().FindClosestManga(ctx, titleToSearch)
 	if err != nil {
 		return err
 	}
@@ -635,5 +635,5 @@ func (c *Client) markChapterAsRead(
 	}
 
 	progress := int(math.Trunc(float64(chapter.Info().Number)))
-	return c.Anilist().SetMangaProgress(ctx, manga.ID, progress)
+	return c.Anilist().SetMangaProgress(ctx, anilistManga.ID().Value(), progress)
 }

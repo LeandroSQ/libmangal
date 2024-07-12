@@ -1,11 +1,7 @@
 package anilist
 
-import "fmt"
-
-type Error struct {
-	E error
-}
+type Error string
 
 func (e Error) Error() string {
-	return fmt.Sprintf("anilist error: %s", e.E.Error())
+	return "anilist error: " + e.Error()
 }
