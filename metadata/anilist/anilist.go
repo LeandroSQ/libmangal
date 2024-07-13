@@ -281,7 +281,7 @@ func (a *Anilist) SearchByManga(
 
 	// Try to search by Anilist ID if it is available
 	for _, id := range meta.ExtraIDs() {
-		if id.IDCode == metadata.IDCodeAnilist {
+		if id.Code == metadata.IDCodeAnilist {
 			anilistManga, found, err := a.SearchByID(ctx, id.Value())
 			if err == nil && found {
 				return anilistManga, true, nil

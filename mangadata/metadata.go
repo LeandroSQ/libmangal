@@ -47,10 +47,10 @@ type Metadata struct {
 // "`Title` (`Year`) [`IDCode`id-`ID`]" if available.
 func (m *Metadata) String() string {
 	base := m.Title() + " (" + strconv.Itoa(m.StartDate().Year)
-	if m.ID().Value() == 0 || m.ID().IDCode == "" {
+	if m.ID().Value() == 0 || m.ID().Code == "" {
 		return base + ")"
 	}
-	return base + ") [" + m.ID().IDCode + "-" + strconv.Itoa(m.ID().Value()) + "]"
+	return base + ") [" + m.ID().Code + "-" + strconv.Itoa(m.ID().Value()) + "]"
 }
 
 // Title is the English title of the manga.
@@ -200,9 +200,9 @@ func (m *Metadata) URL() string {
 // Must be valid (ID.Validate).
 func (m *Metadata) ID() metadata.ID {
 	return metadata.ID{
-		IDRaw:    m.ProviderID,
-		IDSource: metadata.IDSourceProvider,
-		IDCode:   m.ProviderIDCode,
+		Raw:    m.ProviderID,
+		Source: metadata.IDSourceProvider,
+		Code:   m.ProviderIDCode,
 	}
 }
 

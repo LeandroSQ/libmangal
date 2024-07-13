@@ -77,7 +77,7 @@ func (m *Manga) String() string {
 	if m.ID().Value() == 0 {
 		return base + ")"
 	}
-	return base + ") [" + m.ID().IDCode + "id-" + strconv.Itoa(m.ID().Value()) + "]"
+	return base + ") [" + m.ID().Code + "id-" + strconv.Itoa(m.ID().Value()) + "]"
 }
 
 // Title is the English title of the manga.
@@ -278,9 +278,9 @@ func (m *Manga) URL() string {
 // Must be valid (ID.Validate).
 func (m *Manga) ID() metadata.ID {
 	return metadata.ID{
-		IDRaw:    strconv.Itoa(m.IDProvider),
-		IDSource: metadata.IDSourceAnilist,
-		IDCode:   metadata.IDCodeAnilist,
+		Raw:    strconv.Itoa(m.IDProvider),
+		Source: metadata.IDSourceAnilist,
+		Code:   metadata.IDCodeAnilist,
 	}
 }
 
@@ -292,9 +292,9 @@ func (m *Manga) ExtraIDs() []metadata.ID {
 	}
 	return []metadata.ID{
 		{
-			IDRaw:    strconv.Itoa(m.IDMal),
-			IDSource: metadata.IDSourceMyAnimeList,
-			IDCode:   metadata.IDCodeMyAnimeList,
+			Raw:    strconv.Itoa(m.IDMal),
+			Source: metadata.IDSourceMyAnimeList,
+			Code:   metadata.IDCodeMyAnimeList,
 		},
 	}
 }

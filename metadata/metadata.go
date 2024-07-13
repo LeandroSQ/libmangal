@@ -49,26 +49,31 @@ type Date struct {
 	Day   int `json:"day"`
 }
 
+// TODO: add more checks and print other options for
+// available data (for example if only Year data is available)
 func (d Date) String() string {
+	if d == (Date{}) {
+		return ""
+	}
 	return fmt.Sprintf("%d-%02d-%02d", d.Year, d.Month, d.Day)
 }
 
 // ID is the ID information of the metadata.
 type ID struct {
-	// ID id of the manga in the provider.
+	// Raw id of the manga in the provider.
 	// Must be non-empty unless IDSource is IDSourceProvider.
 	// Must be an integer unless IDSource is IDSourceAnimePlanet.
-	IDRaw string
+	Raw string
 
-	// IDSource of the metadata.
+	// Source of the metadata.
 	// Must be non-zero.
-	IDSource IDSource
+	Source IDSource
 
-	// IDCode of the metadata provider name.
+	// Code of the metadata provider.
 	// Must be non-empty.
 	//
 	// For the Provider metadata, the code must be short, ideally 2-3 chars.
-	IDCode string
+	Code string
 }
 
 // Value is the integer value of the ID.
@@ -77,22 +82,22 @@ type ID struct {
 // or IDSourceAnimePlanet then returns 0.
 func (id ID) Value() int {
 	// IDRaw already validated
-	i, _ := strconv.Atoi(id.IDRaw)
+	i, _ := strconv.Atoi(id.Raw)
 	return i
 }
 
 func (id ID) validate() error {
-	if id.IDCode == "" {
+	if id.Code == "" {
 		return errors.New("IDCode must be non-empty")
 	}
 
-	switch id.IDSource {
+	switch id.Source {
 	case 0:
 		return errors.New("IDSource must be non-zero")
 	case IDSourceProvider:
 		return nil
 	case IDSourceAnilist, IDSourceMyAnimeList, IDSourceKitsu, IDSourceMangaUpdates:
-		i, err := strconv.Atoi(id.IDRaw)
+		i, err := strconv.Atoi(id.Raw)
 		if err != nil {
 			return errors.New("ID must be an integer")
 		}
@@ -100,7 +105,7 @@ func (id ID) validate() error {
 			return errors.New("ID must be a non-zero positive integer")
 		}
 	case IDSourceAnimePlanet:
-		if id.IDRaw == "" {
+		if id.Raw == "" {
 			return errors.New("AnimePlanet ID must be non-empty")
 		}
 	default:
