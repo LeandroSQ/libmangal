@@ -63,18 +63,18 @@ func (c *Client) downloadChapterWithMetadata(
 	)
 
 	if options.CreateProviderDir {
-		directory = filepath.Join(directory, c.ComputeProviderFilename(c.provider.Info()))
+		directory = filepath.Join(directory, c.ProviderName(c.provider.Info()))
 	}
 
 	if options.CreateMangaDir {
-		directory = filepath.Join(directory, c.ComputeMangaFilename(chapter.Volume().Manga()))
+		directory = filepath.Join(directory, c.MangaName(chapter.Volume().Manga()))
 		seriesJSONDir = directory
 		coverDir = directory
 		bannerDir = directory
 	}
 
 	if options.CreateVolumeDir {
-		directory = filepath.Join(directory, c.ComputeVolumeFilename(chapter.Volume()))
+		directory = filepath.Join(directory, c.VolumeName(chapter.Volume()))
 	}
 
 	err := c.options.FS.MkdirAll(directory, c.options.ModeDir)
@@ -82,7 +82,7 @@ func (c *Client) downloadChapterWithMetadata(
 		return nil, err
 	}
 
-	chapterFilename := c.ComputeChapterFilename(chapter, options.Format)
+	chapterFilename := c.ChapterName(chapter, options.Format)
 	chapterPath := filepath.Join(directory, chapterFilename)
 
 	chapterExists, err := existsFunc(chapterPath)

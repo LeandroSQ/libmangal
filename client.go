@@ -136,7 +136,8 @@ func (c *Client) DownloadChapter(
 	c.logger.Log("downloading chapter %q as %s", chapter, options.Format)
 
 	manga := chapter.Volume().Manga()
-	// Found metadata will be replacing the incoming one, even when no metadata is found (nil)
+	// Found metadata will be replacing the incoming one,
+	// even when no metadata is found (nil)
 	if options.SearchMetadata {
 		m, err := c.SearchMetadata(ctx, manga)
 		if err != nil {
@@ -282,18 +283,24 @@ func (c *Client) ReadChapter(
 	return nil
 }
 
-func (c *Client) ComputeProviderFilename(provider ProviderInfo) string {
-	return c.options.ProviderNameTemplate(provider)
+// ProviderName determines the provider directory name.
+func (c *Client) ProviderName(provider ProviderInfo) string {
+	return c.options.ProviderName(provider)
 }
 
-func (c *Client) ComputeMangaFilename(manga mangadata.Manga) string {
-	return c.options.MangaNameTemplate(c.String(), manga)
+// MangaName determines the manga directory name.
+func (c *Client) MangaName(manga mangadata.Manga) string {
+	return c.options.MangaName(c.Info(), manga)
 }
 
-func (c *Client) ComputeVolumeFilename(volume mangadata.Volume) string {
-	return c.options.VolumeNameTemplate(c.String(), volume)
+// VolumeName determines the volume directory name.
+// E.g. "Vol. 1" or "Volume 1"
+func (c *Client) VolumeName(volume mangadata.Volume) string {
+	return c.options.VolumeName(c.Info(), volume)
 }
 
-func (c *Client) ComputeChapterFilename(chapter mangadata.Chapter, format Format) string {
-	return c.options.ChapterNameTemplate(c.String(), chapter) + format.Extension()
+// ChapterName determines the chapter file name.
+// E.g. "[001] chapter 1" or "Chainsaw Man - Ch. 1"
+func (c *Client) ChapterName(chapter mangadata.Chapter, format Format) string {
+	return c.options.ChapterName(c.Info(), chapter) + format.Extension()
 }

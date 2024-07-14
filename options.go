@@ -142,28 +142,28 @@ type ClientOptions struct {
 	// ModeFile is the permission bits used for all files created.
 	ModeFile fs.FileMode
 
-	// ProviderNameTemplate defines how provider filenames will look when downloaded.
-	ProviderNameTemplate func(
+	// ProviderName determines the provider directory name.
+	ProviderName func(
 		provider ProviderInfo,
 	) string
 
-	// ChapterNameTemplate defines how mangas filenames will look when downloaded.
-	MangaNameTemplate func(
-		provider string,
+	// MangaName determines the manga directory name.
+	MangaName func(
+		provider ProviderInfo,
 		manga mangadata.Manga,
 	) string
 
-	// ChapterNameTemplate defines how volumes filenames will look when downloaded.
-	// E.g. Vol. 1
-	VolumeNameTemplate func(
-		provider string,
+	// VolumeName determines the volume directory name.
+	// E.g. "Vol. 1" or "Volume 1"
+	VolumeName func(
+		provider ProviderInfo,
 		volume mangadata.Volume,
 	) string
 
-	// ChapterNameTemplate defines how chapters filenames will look when downloaded.
+	// ChapterName determines the chapter file name.
 	// E.g. "[001] chapter 1" or "Chainsaw Man - Ch. 1"
-	ChapterNameTemplate func(
-		provider string,
+	ChapterName func(
+		provider ProviderInfo,
 		chapter mangadata.Chapter,
 	) string
 
@@ -180,16 +180,16 @@ func DefaultClientOptions() ClientOptions {
 		ModeDir:    defaultModeDir,
 		ModeFile:   defaultModeFile,
 		FS:         afero.NewOsFs(),
-		ProviderNameTemplate: func(provider ProviderInfo) string {
+		ProviderName: func(provider ProviderInfo) string {
 			return sanitizePath(provider.Name)
 		},
-		MangaNameTemplate: func(_ string, manga mangadata.Manga) string {
+		MangaName: func(_ ProviderInfo, manga mangadata.Manga) string {
 			return sanitizePath(manga.Info().Title)
 		},
-		VolumeNameTemplate: func(_ string, volume mangadata.Volume) string {
+		VolumeName: func(_ ProviderInfo, volume mangadata.Volume) string {
 			return sanitizePath(fmt.Sprintf("Vol. %.1f", volume.Info().Number))
 		},
-		ChapterNameTemplate: func(_ string, chapter mangadata.Chapter) string {
+		ChapterName: func(_ ProviderInfo, chapter mangadata.Chapter) string {
 			info := chapter.Info()
 			number := fmt.Sprintf("%06.1f", info.Number)
 			return sanitizePath(fmt.Sprintf("[%s] %s", number, info.Title))
