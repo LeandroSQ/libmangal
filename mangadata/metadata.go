@@ -2,6 +2,7 @@ package mangadata
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/luevano/libmangal/metadata"
 )
@@ -59,13 +60,14 @@ func (m *Metadata) String() string {
 // If English is not available, then in in order of availability:
 // Romaji (the romanized title) or Native (usually Kanji).
 func (m *Metadata) Title() string {
-	if m.EnglishTitle != "" {
-		return m.EnglishTitle
+	t := strings.TrimSpace(m.EnglishTitle)
+	if t == "" {
+		t = strings.TrimSpace(m.RomajiTitle)
 	}
-	if m.RomajiTitle != "" {
-		return m.RomajiTitle
+	if t == "" {
+		t = strings.TrimSpace(m.NativeTitle)
 	}
-	return m.NativeTitle
+	return t
 }
 
 // AlternateTitles is a list of alternative titles in order of relevance.
@@ -79,7 +81,8 @@ func (m *Metadata) AlternateTitles() []string {
 		m.NativeTitle,
 	}
 	for _, t := range append(ts, m.Synonyms...) {
-		if t == title {
+		t = strings.TrimSpace(t)
+		if t == title || t == "" {
 			continue
 		}
 		titles = append(titles, t)

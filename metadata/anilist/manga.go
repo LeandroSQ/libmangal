@@ -86,13 +86,14 @@ func (m *Manga) String() string {
 // If English is not available, then in in order of availability:
 // Romaji (the romanized title) or Native (usually Kanji).
 func (m *Manga) Title() string {
-	if m.TitleGroup.English != "" {
-		return m.TitleGroup.English
+	t := strings.TrimSpace(m.TitleGroup.English)
+	if t == "" {
+		t = strings.TrimSpace(m.TitleGroup.Romaji)
 	}
-	if m.TitleGroup.Romaji != "" {
-		return m.TitleGroup.Romaji
+	if t == "" {
+		t = strings.TrimSpace(m.TitleGroup.Native)
 	}
-	return m.TitleGroup.Native
+	return t
 }
 
 // AlternateTitles is a list of alternative titles in order of relevance.
@@ -106,7 +107,8 @@ func (m *Manga) AlternateTitles() []string {
 		m.TitleGroup.Native,
 	}
 	for _, t := range append(ts, m.Synonyms...) {
-		if t == title {
+		t = strings.TrimSpace(t)
+		if t == title || t == "" {
 			continue
 		}
 		titles = append(titles, t)
