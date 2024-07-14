@@ -2,7 +2,9 @@ package libmangal
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/luevano/libmangal/mangadata"
@@ -13,11 +15,16 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type metadataClients struct {
+	anilist *anilist.Anilist
+}
+
 // Client is the wrapper around Provider with the extended functionality.
 //
 // It's the core of the libmangal.
 type Client struct {
 	provider Provider
+	meta     metadataClients
 	options  ClientOptions
 	logger   *logger.Logger
 }
@@ -57,8 +64,17 @@ func (c *Client) FS() afero.Fs {
 	return c.options.FS
 }
 
+// Anilist get the anilist client for this client.
 func (c *Client) Anilist() *anilist.Anilist {
-	return c.options.Anilist
+	return c.meta.anilist
+}
+
+// SetAnilist updates the anilist client, keeping the address if already exists.
+func (c *Client) SetAnilist(anilist *anilist.Anilist) {
+	if c.meta.anilist != nil && anilist != nil {
+		*c.meta.anilist = *anilist
+	}
+	c.meta.anilist = anilist
 }
 
 func (c *Client) Logger() *logger.Logger {
@@ -112,6 +128,10 @@ func (c *Client) SearchMetadata(
 	manga mangadata.Manga,
 ) (metadata.Metadata, error) {
 	c.logger.Log("searching metadata for manga %q", manga)
+	// TODO: do the validation elsewhere?
+	if c.Anilist() == nil {
+		return nil, errors.New("no anilist client is available")
+	}
 	anilistManga, found, err := c.Anilist().SearchByManga(ctx, manga)
 	if err != nil {
 		return nil, err
@@ -273,13 +293,35 @@ func (c *Client) ReadChapter(
 		return err
 	}
 
+	if !options.SaveAnilist || !options.SaveHistory {
+		return nil
+	}
+
+	progress := int(math.Trunc(float64(chapter.Info().Number)))
+	meta := chapter.Volume().Manga().Metadata()
+	ids := []metadata.ID{meta.ID()}
+	ids = append(ids, meta.ExtraIDs()...)
+
+	// TODO: also do a search like before? the risk is
+	// not finding the correct anilist manga
+	anilistID := 0
+	for _, id := range ids {
+		if id.Source == metadata.IDSourceAnilist {
+			anilistID = id.Value()
+			break
+		}
+	}
+
 	// TODO: generalize this to mark as read on multiple metadata providers
-	if options.SaveAnilist && c.Anilist().IsAuthorized() {
-		return c.markChapterAsRead(ctx, chapter)
+	if options.SaveAnilist {
+		// TODO: do the validation elsewhere?
+		if c.Anilist() == nil {
+			return errors.New("no anilist client is available")
+		}
+		return c.Anilist().SetMangaProgress(ctx, anilistID, progress)
 	}
 
 	// TODO: save to local history
-
 	return nil
 }
 

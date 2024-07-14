@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"path/filepath"
 	"time"
@@ -606,34 +605,4 @@ func (c *Client) writeSeriesJSON(
 
 	_, err = out.Write(marshalled)
 	return err
-}
-
-// TODO: move into anilist? this is specific to anilist read progress
-func (c *Client) markChapterAsRead(
-	ctx context.Context,
-	chapter mangadata.Chapter,
-) error {
-	chapterMangaInfo := chapter.Volume().Manga().Info()
-
-	var titleToSearch string
-
-	if title := chapterMangaInfo.AnilistSearch; title != "" {
-		titleToSearch = title
-	} else if title := chapterMangaInfo.Title; title != "" {
-		titleToSearch = title
-	} else {
-		return fmt.Errorf("can't find title for chapter %q", chapter)
-	}
-
-	anilistManga, ok, err := c.Anilist().FindClosestManga(ctx, titleToSearch)
-	if err != nil {
-		return err
-	}
-
-	if !ok {
-		return fmt.Errorf("manga for chapter %q was not found on anilist", chapter)
-	}
-
-	progress := int(math.Trunc(float64(chapter.Info().Number)))
-	return c.Anilist().SetMangaProgress(ctx, anilistManga.ID().Value(), progress)
 }

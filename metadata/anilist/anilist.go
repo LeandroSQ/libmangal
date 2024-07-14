@@ -393,6 +393,9 @@ func (a *Anilist) BindTitleWithID(title string, id int) error {
 
 // SetMangaProgress sets the reading progress for a given anilist id.
 func (a *Anilist) SetMangaProgress(ctx context.Context, id, chapterNumber int) error {
+	if id == 0 {
+		return Error("Anilist ID not valid (0)")
+	}
 	if !a.IsAuthorized() {
 		return Error("not authorized")
 	}

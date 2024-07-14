@@ -7,7 +7,6 @@ import (
 
 	"github.com/luevano/libmangal/mangadata"
 	"github.com/luevano/libmangal/metadata"
-	"github.com/luevano/libmangal/metadata/anilist"
 	"github.com/spf13/afero"
 )
 
@@ -127,6 +126,8 @@ func DefaultDownloadOptions() DownloadOptions {
 
 // ClientOptions is options that client would use during its runtime.
 type ClientOptions struct {
+	// TODO: move HTTPClient (and UserAgent) out of the options?
+	//
 	// HTTPClient is http client that client would use for requests.
 	HTTPClient *http.Client
 
@@ -166,14 +167,10 @@ type ClientOptions struct {
 		provider ProviderInfo,
 		chapter mangadata.Chapter,
 	) string
-
-	// Anilist is the Anilist client to use.
-	Anilist *anilist.Anilist
 }
 
 // DefaultClientOptions constructs default ClientOptions, with default Anilist options as well.
 func DefaultClientOptions() ClientOptions {
-	anilist := anilist.NewAnilist(anilist.DefaultOptions())
 	return ClientOptions{
 		HTTPClient: &http.Client{},
 		UserAgent:  defaultUserAgent,
@@ -194,6 +191,5 @@ func DefaultClientOptions() ClientOptions {
 			number := fmt.Sprintf("%06.1f", info.Number)
 			return sanitizePath(fmt.Sprintf("[%s] %s", number, info.Title))
 		},
-		Anilist: &anilist,
 	}
 }
