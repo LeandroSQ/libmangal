@@ -50,7 +50,6 @@ func NewClient(
 	}
 
 	logger := logger.NewLogger()
-	logger.SetPrefix(providerInfo.ID)
 	provider.SetLogger(logger)
 
 	return &Client{
