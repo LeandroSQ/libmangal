@@ -14,9 +14,13 @@ import (
 	"github.com/luevano/libmangal/logger"
 	"github.com/luevano/libmangal/mangadata"
 	"github.com/luevano/libmangal/metadata"
+	"github.com/philippgille/gokv"
 )
 
-const apiURL = "https://graphql.anilist.co"
+const (
+	apiURL      = "https://graphql.anilist.co"
+	CacheDBName = "anilist"
+)
 
 type apiRequestBody struct {
 	Query     string         `json:"query"`
@@ -36,19 +40,25 @@ type Anilist struct {
 	accessToken string
 	options     Options
 	logger      *logger.Logger
+	store       store
 }
 
 // NewAnilist constructs new Anilist client.
 func NewAnilist(options Options) (*Anilist, error) {
-	var accessToken string
-	found, err := options.AccessTokenStore.Get(cacheAccessTokenKey, &accessToken)
-	if err != nil {
-		return nil, err
+	s := store{
+		openStore: func(bucketName string) (gokv.Store, error) {
+			return options.CacheStore(CacheDBName, bucketName)
+		},
 	}
 
 	anilist := &Anilist{
 		options: options,
 		logger:  options.Logger,
+		store:   s,
+	}
+	accessToken, found, err := s.getAuthToken(cacheAccessTokenKey)
+	if err != nil {
+		return nil, err
 	}
 	if found {
 		anilist.accessToken = accessToken
@@ -61,7 +71,7 @@ func (a *Anilist) SearchByID(
 	ctx context.Context,
 	id int,
 ) (Manga, bool, error) {
-	manga, found, err := a.cacheStatusID(id)
+	manga, found, err := a.store.getManga(id)
 	if err != nil {
 		return Manga{}, false, Error(err.Error())
 	}
@@ -77,7 +87,7 @@ func (a *Anilist) SearchByID(
 		return Manga{}, false, nil
 	}
 
-	err = a.cacheSetID(id, manga)
+	err = a.store.setManga(id, manga)
 	if err != nil {
 		return Manga{}, false, Error(err.Error())
 	}
@@ -122,7 +132,7 @@ func (a *Anilist) SearchMangas(
 ) ([]Manga, error) {
 	a.logger.Log("searching mangas with query %q on Anilist", query)
 
-	ids, found, err := a.cacheStatusQuery(query)
+	ids, found, err := a.store.getQueryIDs(query)
 	if err != nil {
 		return nil, Error(err.Error())
 	}
@@ -147,7 +157,7 @@ func (a *Anilist) SearchMangas(
 
 	ids = make([]int, len(mangas))
 	for i, manga := range mangas {
-		err := a.cacheSetID(manga.IDProvider, manga)
+		err := a.store.setManga(manga.IDProvider, manga)
 		if err != nil {
 			return nil, Error(err.Error())
 		}
@@ -155,7 +165,7 @@ func (a *Anilist) SearchMangas(
 		ids[i] = manga.IDProvider
 	}
 
-	err = a.cacheSetQuery(query, ids)
+	err = a.store.setQueryIDs(query, ids)
 	if err != nil {
 		return nil, Error(err.Error())
 	}
@@ -309,12 +319,12 @@ func (a *Anilist) FindClosestManga(
 ) (Manga, bool, error) {
 	a.logger.Log("finding closest manga with query %q on Anilist", title)
 
-	id, found, err := a.cacheStatusTitle(title)
+	id, found, err := a.store.getTitleID(title)
 	if err != nil {
 		return Manga{}, false, Error(err.Error())
 	}
 	if found {
-		manga, found, err := a.cacheStatusID(id)
+		manga, found, err := a.store.getManga(id)
 		if err != nil {
 			return Manga{}, false, Error(err.Error())
 		}
@@ -332,7 +342,7 @@ func (a *Anilist) FindClosestManga(
 		return Manga{}, false, nil
 	}
 
-	err = a.cacheSetTitle(title, manga.IDProvider)
+	err = a.store.setTitleID(title, manga.IDProvider)
 	if err != nil {
 		return Manga{}, false, Error(err.Error())
 	}
@@ -384,7 +394,7 @@ func (a *Anilist) findClosestManga(
 // BindTitleWithID sets a given id to a title,
 // so on each title search the same anilist manga with that id is obtained.
 func (a *Anilist) BindTitleWithID(title string, id int) error {
-	err := a.cacheSetTitle(title, id)
+	err := a.store.setTitleID(title, id)
 	if err != nil {
 		return Error(err.Error())
 	}

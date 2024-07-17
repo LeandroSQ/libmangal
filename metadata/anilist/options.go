@@ -13,23 +13,8 @@ type Options struct {
 	// HTTPClient is a http client used for Anilist API
 	HTTPClient *http.Client
 
-	// QueryToIDsStore maps manga query to multiple anilit ids.
-	//
-	// ["berserk" => [7, 42, 69], "death note" => [887, 3, 134]]
-	QueryToIDsStore gokv.Store
-
-	// TitleToIDStore maps manga title to anilist id.
-	//
-	// ["berserk" => 7, "death note" => 3]
-	TitleToIDStore gokv.Store
-
-	// IDToMangaStore maps anilist id to anilist manga.
-	//
-	// [7 => "{title: ..., image: ..., ...}"]
-	IDToMangaStore gokv.Store
-
-	// AccessTokenStore holds the authentication data.
-	AccessTokenStore gokv.Store
+	// CacheStore returns a gokv.Store implementation for use as a cache storage.
+	CacheStore func(dbName, bucketName string) (gokv.Store, error)
 
 	// LogWriter used for logs progress
 	Logger *logger.Logger
@@ -38,13 +23,10 @@ type Options struct {
 // DefaultOptions constructs default AnilistOptions
 func DefaultOptions() Options {
 	return Options{
-		Logger: logger.NewLogger(),
-
 		HTTPClient: &http.Client{},
-
-		QueryToIDsStore:  syncmap.NewStore(syncmap.DefaultOptions),
-		TitleToIDStore:   syncmap.NewStore(syncmap.DefaultOptions),
-		IDToMangaStore:   syncmap.NewStore(syncmap.DefaultOptions),
-		AccessTokenStore: syncmap.NewStore(syncmap.DefaultOptions),
+		CacheStore: func(dbName, bucketName string) (gokv.Store, error) {
+			return syncmap.NewStore(syncmap.DefaultOptions), nil
+		},
+		Logger: logger.NewLogger(),
 	}
 }

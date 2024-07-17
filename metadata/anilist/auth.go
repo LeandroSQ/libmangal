@@ -26,7 +26,7 @@ type authResponse struct {
 }
 
 func (a *Anilist) Logout() error {
-	return a.options.AccessTokenStore.Delete(cacheAccessTokenKey)
+	return a.store.deleteAuthToken(cacheAccessTokenKey)
 }
 
 // Authorize will obtain Anilist token for API requests.
@@ -84,7 +84,7 @@ func (a *Anilist) Authorize(
 		return Error(err.Error())
 	}
 
-	if err := a.options.AccessTokenStore.Set(cacheAccessTokenKey, res.AccessToken); err != nil {
+	if err := a.store.setAuthToken(cacheAccessTokenKey, res.AccessToken); err != nil {
 		return err
 	}
 
