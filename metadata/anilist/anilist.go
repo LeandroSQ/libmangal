@@ -39,18 +39,21 @@ type Anilist struct {
 }
 
 // NewAnilist constructs new Anilist client.
-func NewAnilist(options Options) Anilist {
+func NewAnilist(options Options) (*Anilist, error) {
 	var accessToken string
 	found, err := options.AccessTokenStore.Get(cacheAccessTokenKey, &accessToken)
+	if err != nil {
+		return nil, err
+	}
 
-	anilist := Anilist{
+	anilist := &Anilist{
 		options: options,
 		logger:  options.Logger,
 	}
-	if err == nil && found {
+	if found {
 		anilist.accessToken = accessToken
 	}
-	return anilist
+	return anilist, nil
 }
 
 // SearchByID gets anilist manga by its id.
