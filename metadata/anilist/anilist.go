@@ -1,15 +1,8 @@
 package anilist
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"net/http"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/luevano/libmangal/mangadata"
@@ -21,19 +14,6 @@ const (
 	apiURL      = "https://graphql.anilist.co"
 	CacheDBName = "anilist"
 )
-
-type apiRequestBody struct {
-	Query     string         `json:"query"`
-	Variables map[string]any `json:"variables"`
-}
-
-type apiResponse[Data any] struct {
-	Errors []struct {
-		Message string `json:"message"`
-		Status  int    `json:"status"`
-	} `json:"errors"`
-	Data Data `json:"data"`
-}
 
 // Anilist is the Anilist client.
 type Anilist struct {
@@ -107,10 +87,7 @@ func (a *Anilist) searchByID(
 			"id": id,
 		},
 	}
-
-	data, err := sendRequest[struct {
-		Media *Manga `json:"media"`
-	}](ctx, a, body)
+	data, err := sendRequest[byIDData](ctx, a, body)
 	if err != nil {
 		return Manga{}, false, err
 	}
@@ -183,12 +160,7 @@ func (a *Anilist) searchMangas(
 			"query": query,
 		},
 	}
-
-	data, err := sendRequest[struct {
-		Page struct {
-			Media []Manga `json:"media"`
-		} `json:"page"`
-	}](ctx, a, body)
+	data, err := sendRequest[mangasData](ctx, a, body)
 	if err != nil {
 		return nil, err
 	}
@@ -197,81 +169,6 @@ func (a *Anilist) searchMangas(
 	a.logger.Log("found %d manga(s) on Anilist", len(mangas))
 
 	return mangas, nil
-}
-
-func sendRequest[Data any](
-	ctx context.Context,
-	anilist *Anilist,
-	requestBody apiRequestBody,
-) (data Data, err error) {
-	marshalled, err := json.Marshal(requestBody)
-	if err != nil {
-		return data, err
-	}
-
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(marshalled))
-	if err != nil {
-		return data, err
-	}
-
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("Accept", "application/json")
-
-	if anilist.IsAuthorized() {
-		request.Header.Set(
-			"Authorization",
-			fmt.Sprintf("Bearer %s", anilist.accessToken),
-		)
-	}
-
-	response, err := anilist.options.HTTPClient.Do(request)
-	if err != nil {
-		return data, err
-	}
-
-	defer response.Body.Close()
-
-	// https://anilist.gitbook.io/anilist-apiv2-docs/overview/rate-limiting
-	if response.StatusCode == http.StatusTooManyRequests {
-		retryAfter := response.Header.Get("X-RateLimit-Remaining")
-		if retryAfter == "" {
-			// 90 seconds
-			retryAfter = "90"
-		}
-
-		seconds, err := strconv.Atoi(retryAfter)
-		if err != nil {
-			return data, err
-		}
-
-		anilist.logger.Log("rate limited, retrying in %d seconds", seconds)
-
-		select {
-		case <-time.After(time.Duration(seconds) * time.Second):
-		case <-ctx.Done():
-			return data, ctx.Err()
-		}
-
-		return sendRequest[Data](ctx, anilist, requestBody)
-	}
-
-	if response.StatusCode != http.StatusOK {
-		return data, fmt.Errorf(response.Status)
-	}
-
-	var body apiResponse[Data]
-
-	err = json.NewDecoder(response.Body).Decode(&body)
-	if err != nil {
-		return data, err
-	}
-
-	if body.Errors != nil {
-		err := body.Errors[0]
-		return data, errors.New(err.Message)
-	}
-
-	return body.Data, nil
 }
 
 // SearchByManga is a convenience method to search given a Manga.
@@ -411,21 +308,14 @@ func (a *Anilist) SetMangaProgress(ctx context.Context, id, chapterNumber int) e
 		return Error("not authorized")
 	}
 
-	_, err := sendRequest[struct {
-		SaveMediaListEntry struct {
-			ID int `json:"id"`
-		} `json:"SaveMediaListEntry"`
-	}](
-		ctx,
-		a,
-		apiRequestBody{
-			Query: mutationSaveProgress,
-			Variables: map[string]any{
-				"id":       id,
-				"progress": chapterNumber,
-			},
+	body := apiRequestBody{
+		Query: mutationSaveProgress,
+		Variables: map[string]any{
+			"id":       id,
+			"progress": chapterNumber,
 		},
-	)
+	}
+	_, err := sendRequest[setProgressData](ctx, a, body)
 	if err != nil {
 		return Error(err.Error())
 	}
