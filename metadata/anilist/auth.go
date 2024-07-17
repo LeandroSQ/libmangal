@@ -7,18 +7,26 @@ import (
 	"net/http"
 )
 
+// cacheAccessTokenKey is the key used to store Anilist access code.
+// It's needed, since the KV interface always expects a key to be passed.
+const (
+	cacheAccessTokenKey = "hi"
+	oAuthPinURL         = "https://anilist.co/api/v2/oauth/pin"
+	oAuthTokenURL       = "https://anilist.co/api/v2/oauth/token"
+)
+
 type LoginCredentials struct {
 	ID     string
 	Secret string
 	Code   string
 }
 
-// anilistStoreAccessCodeStoreKey is the key used to store Anilist access code.
-// It's needed, since the KV interface always expects a key to be passed.
-const anilistStoreAccessCodeStoreKey = "hi"
+type authResponse struct {
+	AccessToken string `json:"access_token"`
+}
 
 func (a *Anilist) Logout() error {
-	return a.options.AccessTokenStore.Delete(anilistStoreAccessCodeStoreKey)
+	return a.options.AccessTokenStore.Delete(cacheAccessTokenKey)
 }
 
 // Authorize will obtain Anilist token for API requests.
@@ -46,49 +54,41 @@ func (a *Anilist) Authorize(
 		"client_secret": credentials.Secret,
 		"code":          credentials.Code,
 		"grant_type":    "authorization_code",
-		"redirect_uri":  "https://anilist.co/api/v2/oauth/pin",
+		"redirect_uri":  oAuthPinURL,
 	})
 	if err != nil {
 		return Error(err.Error())
 	}
 
-	request, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodPost,
-		"https://anilist.co/api/v2/oauth/token",
-		bytes.NewBuffer(body),
-	)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, oAuthTokenURL, bytes.NewBuffer(body))
 	if err != nil {
 		return Error(err.Error())
 	}
 
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
 
-	response, err := a.options.HTTPClient.Do(request)
+	resp, err := a.options.HTTPClient.Do(req)
 	if err != nil {
 		return Error(err.Error())
 	}
-	defer response.Body.Close()
+	defer resp.Body.Close()
 
-	if response.StatusCode != http.StatusOK {
-		return Error("non-OK status response code: " + response.Status)
+	if resp.StatusCode != http.StatusOK {
+		return Error("non-OK status response code: " + resp.Status)
 	}
 
-	var authResponse struct {
-		AccessToken string `json:"access_token"`
-	}
-
-	err = json.NewDecoder(response.Body).Decode(&authResponse)
+	var res authResponse
+	err = json.NewDecoder(resp.Body).Decode(&res)
 	if err != nil {
 		return Error(err.Error())
 	}
 
-	if err := a.options.AccessTokenStore.Set(anilistStoreAccessCodeStoreKey, authResponse.AccessToken); err != nil {
+	if err := a.options.AccessTokenStore.Set(cacheAccessTokenKey, res.AccessToken); err != nil {
 		return err
 	}
 
-	a.accessToken = authResponse.AccessToken
+	a.accessToken = res.AccessToken
 	return nil
 }
 

@@ -16,11 +16,19 @@ import (
 	"github.com/luevano/libmangal/metadata"
 )
 
-const anilistAPIURL = "https://graphql.anilist.co"
+const apiURL = "https://graphql.anilist.co"
 
-type anilistRequestBody struct {
+type apiRequestBody struct {
 	Query     string         `json:"query"`
 	Variables map[string]any `json:"variables"`
+}
+
+type apiResponse[Data any] struct {
+	Errors []struct {
+		Message string `json:"message"`
+		Status  int    `json:"status"`
+	} `json:"errors"`
+	Data Data `json:"data"`
 }
 
 // Anilist is the Anilist client.
@@ -33,17 +41,15 @@ type Anilist struct {
 // NewAnilist constructs new Anilist client.
 func NewAnilist(options Options) Anilist {
 	var accessToken string
-	found, err := options.AccessTokenStore.Get(anilistStoreAccessCodeStoreKey, &accessToken)
+	found, err := options.AccessTokenStore.Get(cacheAccessTokenKey, &accessToken)
 
 	anilist := Anilist{
 		options: options,
 		logger:  options.Logger,
 	}
-
 	if err == nil && found {
 		anilist.accessToken = accessToken
 	}
-
 	return anilist
 }
 
@@ -82,8 +88,8 @@ func (a *Anilist) searchByID(
 ) (Manga, bool, error) {
 	a.logger.Log("searching manga with id %d on Anilist", id)
 
-	body := anilistRequestBody{
-		Query: anilistQuerySearchByID,
+	body := apiRequestBody{
+		Query: querySearchByIDm,
 		Variables: map[string]any{
 			"id": id,
 		},
@@ -158,8 +164,8 @@ func (a *Anilist) searchMangas(
 	ctx context.Context,
 	query string,
 ) ([]Manga, error) {
-	body := anilistRequestBody{
-		Query: anilistQuerySearchByName,
+	body := apiRequestBody{
+		Query: querySearchByName,
 		Variables: map[string]any{
 			"query": query,
 		},
@@ -180,25 +186,17 @@ func (a *Anilist) searchMangas(
 	return mangas, nil
 }
 
-type anilistResponse[Data any] struct {
-	Errors []struct {
-		Message string `json:"message"`
-		Status  int    `json:"status"`
-	} `json:"errors"`
-	Data Data `json:"data"`
-}
-
 func sendRequest[Data any](
 	ctx context.Context,
 	anilist *Anilist,
-	requestBody anilistRequestBody,
+	requestBody apiRequestBody,
 ) (data Data, err error) {
 	marshalled, err := json.Marshal(requestBody)
 	if err != nil {
 		return data, err
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, anilistAPIURL, bytes.NewReader(marshalled))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(marshalled))
 	if err != nil {
 		return data, err
 	}
@@ -248,7 +246,7 @@ func sendRequest[Data any](
 		return data, fmt.Errorf(response.Status)
 	}
 
-	var body anilistResponse[Data]
+	var body apiResponse[Data]
 
 	err = json.NewDecoder(response.Body).Decode(&body)
 	if err != nil {
@@ -407,8 +405,8 @@ func (a *Anilist) SetMangaProgress(ctx context.Context, id, chapterNumber int) e
 	}](
 		ctx,
 		a,
-		anilistRequestBody{
-			Query: anilistMutationSaveProgress,
+		apiRequestBody{
+			Query: mutationSaveProgress,
 			Variables: map[string]any{
 				"id":       id,
 				"progress": chapterNumber,

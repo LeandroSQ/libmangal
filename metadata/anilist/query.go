@@ -1,7 +1,7 @@
 package anilist
 
-// anilistQueryCommon common manga query used for getting manga by id or searching it by name
-const anilistQueryCommon = `
+// queryCommon common manga query used for getting manga by id or searching it by name
+const queryCommon = `
 id
 idMal
 title {
@@ -35,12 +35,12 @@ characters (page: 1, perPage: 10, role: MAIN) {
 }
 startDate {
 	year
-	month	
+	month
 	day
 }
 endDate {
 	year
-	month	
+	month
 	day
 }
 staff {
@@ -63,23 +63,23 @@ externalLinks {
 }
 `
 
-const anilistQuerySearchByName = `
+const querySearchByName = `
 query ($query: String) {
 	Page (page: 1, perPage: 30) {
 		media (search: $query, type: MANGA) {
-			` + anilistQueryCommon + `
+			` + queryCommon + `
 		}
 	}
 }`
 
-const anilistQuerySearchByID = `
+const querySearchByIDm = `
 query ($id: Int) {
 	Media (id: $id, type: MANGA) {
-		` + anilistQueryCommon + `
+		` + queryCommon + `
 	}
 }`
 
-const anilistMutationSaveProgress = `
+const mutationSaveProgress = `
 mutation ($id: Int, $progress: Int) {
 	SaveMediaListEntry (mediaId: $id, progress: $progress, status: CURRENT) {
 		id
