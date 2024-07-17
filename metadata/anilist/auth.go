@@ -21,6 +21,29 @@ type LoginCredentials struct {
 	Code   string
 }
 
+func (c LoginCredentials) Validate() error {
+	if c.ID == "" {
+		return LoginCredentialsError("ID is empty")
+	}
+	if c.Secret == "" {
+		return LoginCredentialsError("Secret is empty")
+	}
+	if c.Code == "" {
+		return LoginCredentialsError("Code is empty")
+	}
+	return nil
+}
+
+func (c LoginCredentials) reqBody() map[string]string {
+	return map[string]string{
+		"client_id":     c.ID,
+		"client_secret": c.Secret,
+		"code":          c.Code,
+		"grant_type":    "authorization_code",
+		"redirect_uri":  oAuthPinURL,
+	}
+}
+
 type authResponse struct {
 	AccessToken string `json:"access_token"`
 }
@@ -35,27 +58,11 @@ func (a *Anilist) Authorize(
 	credentials LoginCredentials,
 ) error {
 	a.logger.Log("logging into Anilist")
-
-	for _, t := range []struct {
-		name  string
-		value string
-	}{
-		{"id", credentials.ID},
-		{"secret", credentials.Secret},
-		{"code", credentials.Code},
-	} {
-		if t.value == "" {
-			return Error(t.name + "s is empty")
-		}
+	if err := credentials.Validate(); err != nil {
+		return err
 	}
 
-	body, err := json.Marshal(map[string]string{
-		"client_id":     credentials.ID,
-		"client_secret": credentials.Secret,
-		"code":          credentials.Code,
-		"grant_type":    "authorization_code",
-		"redirect_uri":  oAuthPinURL,
-	})
+	body, err := json.Marshal(credentials.reqBody())
 	if err != nil {
 		return Error(err.Error())
 	}
