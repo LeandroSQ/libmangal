@@ -6,25 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
 )
-
-type byIDData struct {
-	Media *Manga `json:"media"`
-}
-
-type mangasData struct {
-	Page struct {
-		Media []Manga `json:"media"`
-	} `json:"page"`
-}
-type setProgressData struct {
-	SaveMediaListEntry struct {
-		ID int `json:"id"`
-	} `json:"SaveMediaListEntry"`
-}
 
 type apiRequestBody struct {
 	Query     string         `json:"query"`
@@ -49,22 +35,7 @@ func sendRequest[Data any](
 		return data, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(marshalled))
-	if err != nil {
-		return data, err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	if anilist.IsAuthorized() {
-		req.Header.Set(
-			"Authorization",
-			fmt.Sprintf("Bearer %s", anilist.accessToken),
-		)
-	}
-
-	resp, err := anilist.options.HTTPClient.Do(req)
+	resp, err := anilist.genericRequest(ctx, http.MethodPost, apiURL, bytes.NewReader(marshalled), true)
 	if err != nil {
 		return data, err
 	}
@@ -110,4 +81,19 @@ func sendRequest[Data any](
 	}
 
 	return res.Data, nil
+}
+
+func (a *Anilist) genericRequest(ctx context.Context, method, url string, body io.Reader, authIfAvailable bool) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	if authIfAvailable && a.IsAuthorized() {
+		req.Header.Set("Authorization", "Bearer "+a.accessToken)
+	}
+
+	return a.options.HTTPClient.Do(req)
 }

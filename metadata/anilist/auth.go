@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 )
 
@@ -15,88 +16,108 @@ const (
 	oAuthTokenURL       = "https://anilist.co/api/v2/oauth/token"
 )
 
-type LoginCredentials struct {
-	ID     string
+// CodeGrant is used to authenticate with a given client,
+// which can be used when the client can store the ID and Secret securely,
+// (meaning that the end user doesn't have access to these).
+//
+// This should be used when using your own application. For more:
+// https://anilist.gitbook.io/anilist-apiv2-docs/overview/oauth/getting-started#using-oauth,
+// https://anilist.gitbook.io/anilist-apiv2-docs/overview/oauth/authorization-code-grant
+type CodeGrant struct {
+	// ID is the application client ID.
+	ID string
+
+	// Secret is the application client secret.
 	Secret string
-	Code   string
+
+	// Code is the user provided access code. One time use.
+	Code string
+
+	// RedirectURI callback to receive the access code.
+	//
+	// Defaults to https://anilist.co/api/v2/oauth/pin,
+	// which needs to be manually copied.
+	RedirectURI string
 }
 
-func (c LoginCredentials) Validate() error {
+func (c CodeGrant) Validate() error {
 	if c.ID == "" {
-		return LoginCredentialsError("ID is empty")
+		return CodeGrantError("ID is empty")
 	}
 	if c.Secret == "" {
-		return LoginCredentialsError("Secret is empty")
+		return CodeGrantError("Secret is empty")
 	}
 	if c.Code == "" {
-		return LoginCredentialsError("Code is empty")
+		return CodeGrantError("Code is empty")
 	}
 	return nil
 }
 
-func (c LoginCredentials) reqBody() map[string]string {
+func (c CodeGrant) reqBody() map[string]string {
+	uri := c.RedirectURI
+	if uri == "" {
+		uri = oAuthPinURL
+	}
 	return map[string]string{
 		"client_id":     c.ID,
 		"client_secret": c.Secret,
 		"code":          c.Code,
 		"grant_type":    "authorization_code",
-		"redirect_uri":  oAuthPinURL,
+		"redirect_uri":  uri,
 	}
-}
-
-type authResponse struct {
-	AccessToken string `json:"access_token"`
 }
 
 func (a *Anilist) Logout() error {
 	return a.store.deleteAuthToken(cacheAccessTokenKey)
 }
 
-// Authorize will obtain Anilist token for API requests.
-func (a *Anilist) Authorize(
-	ctx context.Context,
-	credentials LoginCredentials,
-) error {
-	a.logger.Log("logging into Anilist")
-	if err := credentials.Validate(); err != nil {
-		return err
+// AuthorizeWithCodeGrant will authorize the client
+// via code grant, as specified in:
+// https://anilist.gitbook.io/anilist-apiv2-docs/overview/oauth/authorization-code-grant
+//
+// When a client is authorized all API requests will
+// have the access token attached (will be authorized).
+func (a *Anilist) AuthorizeWithCodeGrant(ctx context.Context, codeGrant CodeGrant) error {
+	a.logger.Log("logging into Anilist via code grant")
+
+	accessToken, err := a.getTokenFromCode(ctx, codeGrant)
+	if err != nil {
+		return AuthError(err.Error())
 	}
 
-	body, err := json.Marshal(credentials.reqBody())
-	if err != nil {
-		return Error(err.Error())
+	if err := a.store.setAuthToken(cacheAccessTokenKey, accessToken); err != nil {
+		return AuthError(err.Error())
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, oAuthTokenURL, bytes.NewBuffer(body))
+	a.accessToken = accessToken
+	return nil
+}
+
+func (a *Anilist) getTokenFromCode(ctx context.Context, codeGrant CodeGrant) (string, error) {
+	if err := codeGrant.Validate(); err != nil {
+		return "", err
+	}
+	body, err := json.Marshal(codeGrant.reqBody())
 	if err != nil {
-		return Error(err.Error())
+		return "", err
 	}
 
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := a.options.HTTPClient.Do(req)
+	resp, err := a.genericRequest(ctx, http.MethodPost, oAuthTokenURL, bytes.NewBuffer(body), false)
 	if err != nil {
-		return Error(err.Error())
+		return "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return Error("non-OK status response code: " + resp.Status)
+		return "", errors.New("non-OK status response code: " + resp.Status)
 	}
 
-	var res authResponse
+	var res oAuthData
 	err = json.NewDecoder(resp.Body).Decode(&res)
 	if err != nil {
-		return Error(err.Error())
+		return "", err
 	}
-
-	if err := a.store.setAuthToken(cacheAccessTokenKey, res.AccessToken); err != nil {
-		return err
-	}
-
-	a.accessToken = res.AccessToken
-	return nil
+	return res.AccessToken, nil
 }
 
 func (a *Anilist) IsAuthorized() bool {

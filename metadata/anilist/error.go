@@ -6,8 +6,14 @@ func (e Error) Error() string {
 	return "anilist error: " + string(e)
 }
 
-type LoginCredentialsError string
+type CodeGrantError string
 
-func (e LoginCredentialsError) Error() string {
-	return "anilist login credentials error: " + string(e)
+func (e CodeGrantError) Error() string {
+	return "code grant error: " + string(e)
+}
+
+type AuthError string
+
+func (e AuthError) Error() string {
+	return "anilist login error: " + string(e)
 }

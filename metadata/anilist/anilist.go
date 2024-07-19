@@ -82,7 +82,7 @@ func (a *Anilist) searchByID(
 	a.logger.Log("searching manga with id %d on Anilist", id)
 
 	body := apiRequestBody{
-		Query: querySearchByIDm,
+		Query: querySearchByID,
 		Variables: map[string]any{
 			"id": id,
 		},

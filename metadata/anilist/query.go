@@ -72,7 +72,7 @@ query ($query: String) {
 	}
 }`
 
-const querySearchByIDm = `
+const querySearchByID = `
 query ($id: Int) {
 	Media (id: $id, type: MANGA) {
 		` + queryCommon + `
