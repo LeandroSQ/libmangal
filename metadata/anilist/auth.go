@@ -80,18 +80,19 @@ func (a *Anilist) Logout() error {
 func (a *Anilist) AuthorizeWithCodeGrant(ctx context.Context, codeGrant CodeGrant) error {
 	a.logger.Log("logging into Anilist via code grant")
 
-	accessToken, err := a.getTokenFromCode(ctx, codeGrant)
+	token, err := a.getTokenFromCode(ctx, codeGrant)
 	if err != nil {
 		return AuthError(err.Error())
 	}
 
-	if err := a.store.setAuthToken(cacheAccessTokenKey, accessToken); err != nil {
+	if err := a.store.setAuthToken(cacheAccessTokenKey, token); err != nil {
 		return AuthError(err.Error())
 	}
 
-	a.accessToken = accessToken
+	a.accessToken = token
 	return nil
 }
+
 
 func (a *Anilist) getTokenFromCode(ctx context.Context, codeGrant CodeGrant) (string, error) {
 	if err := codeGrant.Validate(); err != nil {

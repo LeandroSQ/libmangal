@@ -23,7 +23,7 @@ const (
 	// [7 => "{title: ..., image: ..., ...}"]
 	CacheBucketNameIDToManga = "id-to-manga"
 
-	// AccessTokenStore holds the authentication data.
+	// AccessToken holds the authentication data.
 	// Currently only supports one auth token.
 	CacheBucketNameAccessToken = "access-token"
 )
@@ -121,10 +121,6 @@ func (s *store) getAuthToken(key string) (token string, found bool, err error) {
 		return
 	}
 	defer s.Close()
-
-	if s.store == nil {
-		fmt.Println("store is nil when getting auth token")
-	}
 
 	found, err = s.store.Get(key, &token)
 	return
