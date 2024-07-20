@@ -2,6 +2,7 @@ package anilist
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/luevano/libmangal/logger"
@@ -17,10 +18,13 @@ const (
 
 // Anilist is the Anilist client.
 type Anilist struct {
-	accessToken string
-	options     Options
-	logger      *logger.Logger
-	store       store
+	// authenticated user info
+	user  User
+	token string
+
+	options Options
+	logger  *logger.Logger
+	store   store
 }
 
 // NewAnilist constructs new Anilist client.
@@ -36,14 +40,29 @@ func NewAnilist(options Options) (*Anilist, error) {
 		logger:  options.Logger,
 		store:   s,
 	}
-	accessToken, found, err := s.getAuthToken(cacheAccessTokenKey)
+
+	// If no username provided, don't even check for token/user data
+	if options.Username == "" {
+		return anilist, nil
+	}
+
+	found, err := anilist.AuthorizeCachedUser(options.Username)
 	if err != nil {
 		return nil, err
 	}
-	if found {
-		anilist.accessToken = accessToken
+	if !found {
+		anilist.logger.Log("no cached authentication data found for user %q", options.Username)
 	}
+
 	return anilist, nil
+}
+
+// AuthenticatedUser returns the currently authenticated user.
+func (a *Anilist) AuthenticatedUser() (User, error) {
+	if !a.Authenticated() {
+		return User{}, errors.New("Anilist is not authenticated")
+	}
+	return a.user, nil
 }
 
 // SearchByID gets anilist manga by its id.
@@ -304,7 +323,7 @@ func (a *Anilist) SetMangaProgress(ctx context.Context, id, chapterNumber int) e
 	if id == 0 {
 		return Error("Anilist ID not valid (0)")
 	}
-	if !a.IsAuthorized() {
+	if !a.Authenticated() {
 		return Error("not authorized")
 	}
 

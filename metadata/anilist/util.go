@@ -91,8 +91,8 @@ func (a *Anilist) genericRequest(ctx context.Context, method, url string, body i
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
-	if authIfAvailable && a.IsAuthorized() {
-		req.Header.Set("Authorization", "Bearer "+a.accessToken)
+	if authIfAvailable && a.Authenticated() {
+		req.Header.Set("Authorization", "Bearer "+a.token)
 	}
 
 	return a.options.HTTPClient.Do(req)

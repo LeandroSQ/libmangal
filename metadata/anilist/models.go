@@ -16,6 +16,10 @@ type setProgressData struct {
 	} `json:"SaveMediaListEntry"`
 }
 
+type userData struct {
+	Viewer User `json:"viewer"`
+}
+
 // the token expires in a year, there shouldn't be need to handle refreshes...
 type oAuthData struct {
 	AccessToken string `json:"access_token"`

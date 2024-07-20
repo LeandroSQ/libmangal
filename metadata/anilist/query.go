@@ -79,6 +79,35 @@ query ($id: Int) {
 	}
 }`
 
+// viewer is the currently authenticated user
+const queryViewer = `
+query {
+	Viewer {
+		id
+		name
+		about(asHtml: false)
+		avatar {
+			large
+			medium
+		}
+		bannerImage
+		options {
+			titleLanguage
+			displayAdultContent
+			profileColor
+			timezone
+		}
+		siteUrl
+		createdAt
+		updatedAt
+		previousNames {
+			name
+			createdAt
+			updatedAt
+		}
+	}
+}`
+
 const mutationSaveProgress = `
 mutation ($id: Int, $progress: Int) {
 	SaveMediaListEntry (mediaId: $id, progress: $progress, status: CURRENT) {

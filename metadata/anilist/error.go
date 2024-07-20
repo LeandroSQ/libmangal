@@ -15,5 +15,5 @@ func (e CodeGrantError) Error() string {
 type AuthError string
 
 func (e AuthError) Error() string {
-	return "anilist login error: " + string(e)
+	return "anilist auth error: " + string(e)
 }
