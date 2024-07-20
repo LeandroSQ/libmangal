@@ -84,14 +84,14 @@ func (a *Anilist) Logout(deleteCache bool) error {
 	return nil
 }
 
-// DeleteCachedUser will delete the specified user's cached authentication data.
+// DeleteCachedUser will delete the specified user cached access token and data.
 func (a *Anilist) DeleteCachedUser(username string) error {
 	a.logger.Log("deleting cached authentication user data for %q", username)
-	err := a.store.deleteUser(a.user.Name)
+	err := a.store.deleteUser(username)
 	if err != nil {
 		return err
 	}
-	err = a.store.deleteAuthToken(a.user.Name)
+	err = a.store.deleteAuthToken(username)
 	if err != nil {
 		return err
 	}
