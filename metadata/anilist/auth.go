@@ -70,7 +70,7 @@ func (c CodeGrant) reqBody() map[string]string {
 // Returns an error if there is no authenticated user to be logged out.
 func (a *Anilist) Logout(deleteCache bool) error {
 	if !a.Authenticated() {
-		return AuthError("no authenticated user to logout")
+		return LogoutError("no authenticated user to logout")
 	}
 	// To loggout, removing the user and token is enough
 	username := a.user.Name
@@ -79,7 +79,8 @@ func (a *Anilist) Logout(deleteCache bool) error {
 	a.logger.Log("user %q logged out of anilist", username)
 
 	if deleteCache {
-		return a.DeleteCachedUser(username)
+		err := a.DeleteCachedUser(username)
+		return LogoutError(err.Error())
 	}
 	return nil
 }
