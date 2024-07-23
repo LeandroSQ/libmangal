@@ -73,7 +73,7 @@ func (a *Anilist) Logout(deleteCache bool) error {
 		return LogoutError("no authenticated user to logout")
 	}
 	// To loggout, removing the user and token is enough
-	username := a.user.Name
+	username := a.user.Name()
 	a.user = User{}
 	a.token = ""
 	a.logger.Log("user %q logged out of anilist", username)
@@ -157,10 +157,10 @@ func (a *Anilist) AuthorizeWithCodeGrant(ctx context.Context, codeGrant CodeGran
 	a.user = user
 
 	// Store the user and token to cache
-	if err := a.store.setUser(user.Name, user); err != nil {
+	if err := a.store.setUser(user.Name(), user); err != nil {
 		return AuthError(err.Error())
 	}
-	if err := a.store.setAuthToken(user.Name, token); err != nil {
+	if err := a.store.setAuthToken(user.Name(), token); err != nil {
 		return AuthError(err.Error())
 	}
 	return nil
@@ -186,10 +186,10 @@ func (a *Anilist) AuthorizeWithAccessToken(ctx context.Context, token string) er
 	a.user = user
 
 	// Store the user and token to cache
-	if err := a.store.setUser(user.Name, user); err != nil {
+	if err := a.store.setUser(user.Name(), user); err != nil {
 		return AuthError(err.Error())
 	}
-	if err := a.store.setAuthToken(user.Name, token); err != nil {
+	if err := a.store.setAuthToken(user.Name(), token); err != nil {
 		return AuthError(err.Error())
 	}
 	return nil
