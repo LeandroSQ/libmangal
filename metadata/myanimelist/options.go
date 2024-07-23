@@ -5,6 +5,7 @@ import (
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/philippgille/gokv"
+	"github.com/philippgille/gokv/syncmap"
 )
 
 type Options struct {
@@ -22,4 +23,18 @@ type Options struct {
 
 	// LogWriter used for logs progress.
 	Logger *logger.Logger
+}
+
+// DefaultOptions constructs default AnilistOptions.
+//
+// Note: the ClientID still needs to be passed separately.
+func DefaultOptions() Options {
+	return Options{
+		NSFW:       false,
+		HTTPClient: &http.Client{},
+		CacheStore: func(dbName, bucketName string) (gokv.Store, error) {
+			return syncmap.NewStore(syncmap.DefaultOptions), nil
+		},
+		Logger: logger.NewLogger(),
+	}
 }
