@@ -4,8 +4,6 @@ import (
 	"net/http"
 
 	"github.com/luevano/libmangal/logger"
-	"github.com/philippgille/gokv"
-	"github.com/philippgille/gokv/syncmap"
 )
 
 type Options struct {
@@ -18,10 +16,9 @@ type Options struct {
 	// HTTPClient is a http client used for Anilist API.
 	HTTPClient *http.Client
 
-	// CacheStore returns a gokv.Store implementation for use as a cache storage.
-	CacheStore func(dbName, bucketName string) (gokv.Store, error)
-
 	// LogWriter used for logs progress.
+	//
+	// If Logger is nil, a new one will be created.
 	Logger *logger.Logger
 }
 
@@ -32,9 +29,6 @@ func DefaultOptions() Options {
 	return Options{
 		NSFW:       false,
 		HTTPClient: &http.Client{},
-		CacheStore: func(dbName, bucketName string) (gokv.Store, error) {
-			return syncmap.NewStore(syncmap.DefaultOptions), nil
-		},
-		Logger: logger.NewLogger(),
+		Logger:     logger.NewLogger(),
 	}
 }

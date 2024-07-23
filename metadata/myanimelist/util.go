@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/luevano/libmangal/metadata"
 )
 
 var mangaFields = strings.Join([]string{
@@ -41,8 +43,8 @@ type mangasResponse struct {
 
 type mangaNodes []mangaNode
 
-func (n mangaNodes) Get() []Manga {
-	mangas := make([]Manga, len(n))
+func (n mangaNodes) GetAsMetas() []metadata.Metadata {
+	mangas := make([]metadata.Metadata, len(n))
 	for i, n := range n {
 		mangas[i] = n.Node
 	}
@@ -50,7 +52,7 @@ func (n mangaNodes) Get() []Manga {
 }
 
 type mangaNode struct {
-	Node Manga `json:"node"`
+	Node *Manga `json:"node"`
 }
 
 func (a *MyAnimeList) request(

@@ -7,19 +7,24 @@ import (
 	"strconv"
 
 	"github.com/luevano/libmangal/logger"
-	"github.com/philippgille/gokv"
+	"github.com/luevano/libmangal/metadata"
 )
 
-const (
-	apiURL      = "https://api.myanimelist.net/v2"
-	CacheDBName = "myanimelist"
-)
+const apiURL = "https://api.myanimelist.net/v2"
 
-// MyAnimeList is the MyAnimeList client.
+var info = metadata.ProviderInfo{
+	ID:      "myanimelist",
+	Name:    "MyAnimeList",
+	Version: "0.1.0",
+	Website: "https://myanimelist.net/",
+}
+
+var _ metadata.Provider = (*MyAnimeList)(nil)
+
+// MyAnimeList is a metadata.Provider implementation for MyAnimeList.
 type MyAnimeList struct {
 	options Options
 	logger  *logger.Logger
-	store   store
 }
 
 // NewMAL constructs new MyAnimeList client.
@@ -28,122 +33,81 @@ func NewMAL(options Options) (*MyAnimeList, error) {
 		return nil, errors.New("MAL ClientID must not be empty")
 	}
 
-	s := store{
-		openStore: func(bucketName string) (gokv.Store, error) {
-			return options.CacheStore(CacheDBName, bucketName)
-		},
+	l := options.Logger
+	if l == nil {
+		l = logger.NewLogger()
 	}
-
 	mal := &MyAnimeList{
 		options: options,
-		logger:  options.Logger,
-		store:   s,
+		logger:  l,
 	}
 
 	return mal, nil
 }
 
-// SearchByID gets mal manga by its id.
-func (a *MyAnimeList) SearchByID(ctx context.Context, id int) (Manga, bool, error) {
-	a.logger.Log("searching manga with id %d on MyAnimeList", id)
-	manga, found, err := a.store.getManga(id)
-	if err != nil {
-		return Manga{}, false, Error(err.Error())
+func (p *MyAnimeList) String() string {
+	return info.Name
+}
+
+// Info information about Provider.
+func (p *MyAnimeList) Info() metadata.ProviderInfo {
+	return info
+}
+
+// SetLogger sets logger to use for this provider.
+//
+// Setting a nil logger will create a new one.
+func (p *MyAnimeList) SetLogger(_logger *logger.Logger) {
+	if _logger != nil {
+		// p.logger is guaranteed to be non-nil
+		*p.logger = *_logger
+	} else {
+		p.logger = logger.NewLogger()
 	}
-	if found {
-		return manga, true, nil
+}
+
+// Logger returns the set logger.
+//
+// Always returns a non-nil logger.
+func (p *MyAnimeList) Logger() *logger.Logger {
+	return p.logger
+}
+
+// SearchByID for metadata with the given id.
+// Implementation should only handle the request and and marshaling.
+func (p *MyAnimeList) SearchByID(ctx context.Context, id int) (metadata.Metadata, bool, error) {
+	params := url.Values{}
+	params.Set("manga_id", strconv.Itoa(id))
+
+	var manga *Manga
+	err := p.request(ctx, "manga/"+strconv.Itoa(id), params, &manga)
+	if err != nil {
+		return nil, false, err
 	}
 
-	manga, ok, err := a.searchByID(ctx, id)
-	if err != nil {
-		return Manga{}, false, Error(err.Error())
-	}
-	if !ok {
-		return Manga{}, false, nil
-	}
-
-	err = a.store.setManga(id, manga)
-	if err != nil {
-		return Manga{}, false, Error(err.Error())
+	if manga == nil {
+		return nil, false, nil
 	}
 
 	return manga, true, nil
 }
 
-func (a *MyAnimeList) searchByID(ctx context.Context, id int) (Manga, bool, error) {
-	params := url.Values{}
-	params.Set("manga_id", strconv.Itoa(id))
-
-	var manga *Manga
-	err := a.request(ctx, "manga/"+strconv.Itoa(id), params, &manga)
-	if err != nil {
-		return Manga{}, false, err
-	}
-
-	if manga == nil {
-		return Manga{}, false, nil
-	}
-
-	return *manga, true, nil
-}
-
-// SearchMangas gets a list of mal mangas given a query (title).
-func (a *MyAnimeList) SearchMangas(ctx context.Context, query string) ([]Manga, error) {
-	a.logger.Log("searching mangas with query %q on MyAnimeList", query)
-	ids, found, err := a.store.getQueryIDs(query)
-	if err != nil {
-		return nil, Error(err.Error())
-	}
-	if found {
-		var mangas []Manga
-		for _, id := range ids {
-			manga, ok, err := a.SearchByID(ctx, id)
-			if err != nil {
-				return nil, err
-			}
-			if ok {
-				mangas = append(mangas, manga)
-			}
-		}
-		return mangas, nil
-	}
-
-	mangas, err := a.searchMangas(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-
-	ids = make([]int, len(mangas))
-	for i, manga := range mangas {
-		err := a.store.setManga(manga.IDProvider, manga)
-		if err != nil {
-			return nil, Error(err.Error())
-		}
-
-		ids[i] = manga.IDProvider
-	}
-
-	err = a.store.setQueryIDs(query, ids)
-	if err != nil {
-		return nil, Error(err.Error())
-	}
-
-	return mangas, nil
-}
-
-func (a *MyAnimeList) searchMangas(ctx context.Context, query string) ([]Manga, error) {
+// Search for metadata with the given query.
+//
+// Implementation should only handle the request and and marshaling.
+func (p *MyAnimeList) Search(ctx context.Context, query string) ([]metadata.Metadata, error) {
 	params := url.Values{}
 	params.Set("q", query)
 	params.Set("offset", "0")
 	params.Set("limit", "30")
 
 	var res mangasResponse
-	err := a.request(ctx, "manga", params, &res)
+	err := p.request(ctx, "manga", params, &res)
 	if err != nil {
 		return nil, err
 	}
 
-	mangas := res.Data.Get()
-	a.logger.Log("found %d manga(s) on MyAnimeList", len(mangas))
+	mangas := res.Data.GetAsMetas()
+	p.logger.Log("found %d manga(s) on MyAnimeList", len(mangas))
 	return mangas, nil
 }
