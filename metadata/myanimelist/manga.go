@@ -1,5 +1,25 @@
 package myanimelist
 
+import (
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/luevano/libmangal/metadata"
+)
+
+const mangaURL = "https://myanimelist.net/manga/"
+
+var _ metadata.Metadata = (*Manga)(nil)
+
+type Status string
+
+const (
+	StatusFinished            Status = "finished"
+	StatusCurrentlyPublishing Status = "currently_publishing"
+	StatusNotYetPublished     Status = "not_yet_published"
+)
+
 // Manga is a metadata.Metadata implementation
 // for MyAnimeList manga metadata.
 //
@@ -17,8 +37,8 @@ type Manga struct {
 		En       string   `json:"en"`
 		Ja       string   `json:"ja"`
 	} `json:"alternative_titles"`
-	DateStart  string  `json:"start_date"`
-	DateEnd    string  `json:"end_date"`
+	DateStart  date    `json:"start_date"`
+	DateEnd    date    `json:"end_date"`
 	Synopsis   string  `json:"synopsis"`
 	Mean       float32 `json:"mean"`
 	Rank       int     `json:"rank"`
@@ -31,15 +51,276 @@ type Manga struct {
 	CreatedAt         string `json:"created_at"`
 	UpdatedAt         string `json:"updated_at"`
 	MediaType         string `json:"media_type" jsonschema:"enum=unknown,enum=manga,enum=novel,enum=one_shot,enum=doujinshi,enum=manhwa,enum=manhua,enum=oel"`
-	PublicationStatus string `json:"status" jsonschema:"enum=finished,enum=currently_publishing,enum=not_yet_published"`
+	PublicationStatus Status `json:"status"`
 	NumVolumes        int    `json:"num_volumes"`
 	NumChapters       int    `json:"num_chapters"`
 	AuthorList        []struct {
-		Node struct {
-			ID        int    `json:"id"`
-			FirstName string `json:"first_name"`
-			LastName  string `json:"last_name"`
-		} `json:"node"`
-		Role string `json:"role"`
+		Node authorListNode `json:"node"`
+		Role string         `json:"role"`
 	} `json:"authors"`
+}
+
+type date string
+
+// From: https://myanimelist.net/apiconfig/references/api/v2#section/Common-formats
+func (d date) toMetadataDate() metadata.Date {
+	var parsed time.Time
+	switch {
+	// Year only
+	case len(d) == 4:
+		parsed, _ = time.Parse("2006", string(d))
+	// Year and month
+	case len(d) == 7:
+		parsed, _ = time.Parse("2006-01", string(d))
+	// Should be normal
+	default:
+		parsed, _ = time.Parse("2006-01-02", string(d))
+	}
+
+	return metadata.Date{
+		Year:  parsed.Year(),
+		Month: int(parsed.Month()),
+		Day:   parsed.Day(),
+	}
+}
+
+type authorListNode struct {
+	ID        int    `json:"id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+}
+
+func (a authorListNode) name() string {
+	var name string
+	// sometimes first name field is empty
+	if fn := a.FirstName; fn != "" {
+		name += fn
+	}
+	// but there is a last name
+	if ln := a.LastName; ln != "" {
+		// if it didn't contain a first name, don't add the comma
+		if a.FirstName != "" {
+			name += ", "
+		}
+		name += ln
+	}
+	return name
+}
+
+// String is the short representation of the manga.
+// Must be non-empty.
+//
+// At the minimum it should return "`Title` (`Year`)", else
+// "`Title` (`Year`) [`IDCode`id-`ID`]" if available.
+func (m *Manga) String() string {
+	base := m.Title() + " (" + strconv.Itoa(m.StartDate().Year)
+	if m.ID().Value() == 0 {
+		return base + ")"
+	}
+	return base + ") [" + m.ID().Code + "id-" + strconv.Itoa(m.ID().Value()) + "]"
+}
+
+// Title is the English title of the manga.
+// Must be non-empty.
+//
+// If English is not available, then in in order of availability:
+// Romaji (the romanized title) or Native (usually Kanji).
+func (m *Manga) Title() string {
+	return m.TitleProvider
+}
+
+// AlternateTitles is a list of alternative titles in order of relevance.
+func (m *Manga) AlternateTitles() []string {
+	var titles []string
+	if m.AlternativeTitles.En != "" {
+		titles = append(titles, m.AlternativeTitles.En)
+	}
+	if m.AlternativeTitles.Ja != "" {
+		titles = append(titles, m.AlternativeTitles.Ja)
+	}
+	titles = append(titles, m.AlternativeTitles.Synonyms...)
+	return titles
+}
+
+// Score is the community score for the manga.
+//
+// Accepted values are between 0.0 and 5.0.
+func (m *Manga) Score() float32 {
+	return m.Mean / 2.0
+}
+
+// Description is the description/summary for the manga.
+func (m *Manga) Description() string {
+	return m.Synopsis
+}
+
+// Cover is the cover image of the manga.
+func (m *Manga) Cover() string {
+	if pic := m.MainPicture.Large; pic != "" {
+		return pic
+	}
+	return m.MainPicture.Medium
+}
+
+// Banner is the banner image of the manga.
+func (m *Manga) Banner() string {
+	return "" // MAL doesn't provide banners
+}
+
+// Tags is the list of tags associated with the manga.
+func (m *Manga) Tags() []string {
+	// There is no easy way to separate "tags" from the "genres",
+	// but this could help in the future: https://myanimelist.net/manga/genre/info
+	return []string{}
+}
+
+// Genres is the list of genres associated with the manga.
+func (m *Manga) Genres() []string {
+	// Same as with tags, the genres include everything mixed together.
+	genres := make([]string, len(m.GenreList))
+	for i, g := range m.GenreList {
+		genres[i] = g.Name
+	}
+	return genres
+}
+
+// Characters is the list of characters, in order of relevance.
+func (m *Manga) Characters() []string {
+	// No public documented enpoint available as of now. For more:
+	// https://myanimelist.net/forum/?topicid=1973141
+	return []string{}
+}
+
+// Authors (or Writers) is the list of authors, in order of relevance.
+// Must contain at least one artist.
+func (m *Manga) Authors() []string {
+	var authors []string
+	for _, author := range m.AuthorList {
+		role := strings.ToLower(author.Role)
+		if strings.Contains(role, "story") {
+			if name := author.Node.name(); name != "" {
+				authors = append(authors, name)
+			}
+		}
+	}
+	return authors
+}
+
+// Artists is the list of artists, in order of relevance.
+func (m *Manga) Artists() []string {
+	var artists []string
+	for _, author := range m.AuthorList {
+		role := strings.ToLower(author.Role)
+		if strings.Contains(role, "art") {
+			if name := author.Node.name(); name != "" {
+				artists = append(artists, name)
+			}
+		}
+	}
+	return artists
+}
+
+// Translators is the list of translators, in order of relevance.
+func (m *Manga) Translators() []string {
+	var translators []string
+	for _, author := range m.AuthorList {
+		role := strings.ToLower(author.Role)
+		if strings.Contains(role, "translator") { // TODO: check the actual role name (if any)
+			if name := author.Node.name(); name != "" {
+				translators = append(translators, name)
+			}
+		}
+	}
+	return translators
+}
+
+// Letterers is the list of letterers, in order of relevance.
+func (m *Manga) Letterers() []string {
+	var letterers []string
+	for _, author := range m.AuthorList {
+		role := strings.ToLower(author.Role)
+		if strings.Contains(role, "lettering") { // TODO: check the actual role name (if any)
+			if name := author.Node.name(); name != "" {
+				letterers = append(letterers, name)
+			}
+		}
+	}
+	return letterers
+}
+
+// StartDate is the date the manga started publishing.
+// Must be non-zero.
+func (m *Manga) StartDate() metadata.Date {
+	return m.DateStart.toMetadataDate()
+}
+
+// EndDate is the date the manga ended publishing.
+func (m *Manga) EndDate() metadata.Date {
+	return m.DateEnd.toMetadataDate()
+}
+
+// Publisher of the manga.
+func (m *Manga) Publisher() string {
+	return ""
+}
+
+// Current status of the manga.
+// Must be non-empty.
+//
+// One of: FINISHED, RELEASING, NOT_YET_RELEASED, CANCELLED, HIATUS
+func (m *Manga) Status() metadata.Status {
+	switch m.PublicationStatus {
+	case StatusFinished:
+		return metadata.StatusFinished
+	case StatusCurrentlyPublishing:
+		return metadata.StatusReleasing
+	case StatusNotYetPublished:
+		return metadata.StatusNotYetReleased
+	default:
+		// assume that if it is unknown it hasn't been released...
+		return metadata.StatusNotYetReleased
+	}
+}
+
+// Format the original publication.
+//
+// For example: TBP, HC, Web, Digital, etc..
+func (m *Manga) Format() string {
+	return ""
+}
+
+// Country of origin of the manga. ISO 3166-1 alpha-2 country code.
+func (m *Manga) Country() string {
+	return ""
+}
+
+// Chapter count until this point.
+func (m *Manga) Chapters() int {
+	return m.NumChapters
+}
+
+// Extra notes to be added.
+func (m *Manga) Notes() string {
+	return ""
+}
+
+// URL is the source URL of the metadata.
+func (m *Manga) URL() string {
+	return mangaURL + strconv.Itoa(m.IDProvider)
+}
+
+// ID is the ID information of the metadata.
+// Must be valid (ID.Validate).
+func (m *Manga) ID() metadata.ID {
+	return metadata.ID{
+		Raw:    strconv.Itoa(m.IDProvider),
+		Source: metadata.IDSourceMyAnimeList,
+		Code:   metadata.IDCodeMyAnimeList,
+	}
+}
+
+// ExtraIDs is a list of extra available IDs in the metadata provider.
+// Each extra ID must be valid (ID.Validate).
+func (m *Manga) ExtraIDs() []metadata.ID {
+	return []metadata.ID{}
 }
