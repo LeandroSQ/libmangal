@@ -9,14 +9,39 @@ import (
 	"github.com/luevano/libmangal/logger"
 	"github.com/luevano/libmangal/mangadata"
 	"github.com/luevano/libmangal/metadata"
-	"github.com/luevano/libmangal/metadata/anilist"
 	"github.com/skratchdot/open-golang/open"
 	"github.com/spf13/afero"
 	"golang.org/x/sync/errgroup"
 )
 
-type metadataClients struct {
-	anilist *anilist.Anilist
+type metaProviders map[metadata.IDCode]metadata.ProviderWithCache
+
+// Add will add or update the metadata Provider with its id.
+func (m *metaProviders) Add(provider metadata.ProviderWithCache) error {
+	id := provider.Info().ID
+	if id == "" {
+		return errors.New("metadata Provider ID must be non-empty")
+	}
+	if m == nil {
+		m = &metaProviders{id: provider}
+		return nil
+	}
+
+	(*m)[id] = provider
+	return nil
+}
+
+// Get returns the requested metadata Provider for the given id.
+func (m *metaProviders) Get(id metadata.IDCode) (metadata.ProviderWithCache, error) {
+	if m == nil {
+		return metadata.ProviderWithCache{}, errors.New("no metadata Providers available")
+	}
+
+	p, ok := (*m)[id]
+	if !ok {
+		return metadata.ProviderWithCache{}, errors.New("no metadata Provider found with ID " + string(id))
+	}
+	return p, nil
 }
 
 // Client is the wrapper around Provider with the extended functionality.
@@ -24,7 +49,7 @@ type metadataClients struct {
 // It's the core of the libmangal.
 type Client struct {
 	provider Provider
-	meta     metadataClients
+	meta     metaProviders
 	options  ClientOptions
 	logger   *logger.Logger
 }
@@ -63,17 +88,14 @@ func (c *Client) FS() afero.Fs {
 	return c.options.FS
 }
 
-// Anilist get the anilist client for this client.
-func (c *Client) Anilist() *anilist.Anilist {
-	return c.meta.anilist
+// AddMetadataProvider will add or update the metadata Provider.
+func (c *Client) AddMetadataProvider(provider metadata.ProviderWithCache) error {
+	return c.meta.Add(provider)
 }
 
-// SetAnilist updates the anilist client, keeping the address if already exists.
-func (c *Client) SetAnilist(anilist *anilist.Anilist) {
-	if c.meta.anilist != nil && anilist != nil {
-		*c.meta.anilist = *anilist
-	}
-	c.meta.anilist = anilist
+// GetMetadataProvider returns the requested metadata Provider for the given id.
+func (c *Client) GetMetadataProvider(id metadata.IDCode) (metadata.ProviderWithCache, error) {
+	return c.meta.Get(id)
 }
 
 func (c *Client) Logger() *logger.Logger {
@@ -126,21 +148,27 @@ func (c *Client) SearchMetadata(
 	ctx context.Context,
 	manga mangadata.Manga,
 ) (metadata.Metadata, error) {
-	c.logger.Log("searching metadata for manga %q", manga)
-	// TODO: do the validation elsewhere?
-	if c.Anilist() == nil {
-		return nil, errors.New("no anilist client is available")
-	}
-	anilistManga, found, err := c.Anilist().SearchByManga(ctx, manga)
-	if err != nil {
-		return nil, err
-	}
-	if !found {
-		c.logger.Log("couldn't find associated anilist manga for %q", manga)
-		return nil, nil
+	c.logger.Log("searching metadata for manga %q on all available providers", manga)
+
+	if len(c.meta) == 0 {
+		return nil, errors.New("no metadata Providers available")
 	}
 
-	return &anilistManga, nil
+	for id, p := range c.meta {
+		meta, found, err := c.SearchByManga(ctx, p, manga)
+		if err != nil {
+			return nil, err
+		}
+		if !found {
+			c.logger.Log("no metadata found for manga %q on metadata Provider %q", manga, string(id))
+			continue
+		}
+
+		c.logger.Log("found metadata for manga %q on metadata Provider %q", manga, string(id))
+		return meta, nil
+	}
+
+	return nil, nil
 }
 
 // SearchByManga is a convenience method to search given a Manga.
@@ -150,14 +178,10 @@ func (c *Client) SearchMetadata(
 //
 // 1. If the manga contains non-nil metadata, by its metadata ID if available.
 //
-// 2. If the provider is a ProviderWithCache:
+// 2 If the manga title is binded to a metadata ID.
 //
-// 2.1 If the manga title is binded to a metadata ID.
-//
-// 2.2 Find closest manga metadata (FindClosest) by using the manga Title field.
-//
-// 3. If not a ProviderWithCache, search mangas and get the first result (if any).
-func (c *Client) SearchByManga(ctx context.Context, provider metadata.Provider, manga mangadata.Manga) (metadata.Metadata, bool, error) {
+// 3 Find closest manga metadata (FindClosest) by using the manga Title field.
+func (c *Client) SearchByManga(ctx context.Context, provider metadata.ProviderWithCache, manga mangadata.Manga) (metadata.Metadata, bool, error) {
 	c.logger.Log("finding manga metadata by (libmangal) manga on %q", c.Info().Name)
 
 	// Try to search by metadata ID if it is available
@@ -176,23 +200,7 @@ func (c *Client) SearchByManga(ctx context.Context, provider metadata.Provider, 
 	// the manga requested, there are some instances in which
 	// the result will be wrong
 	title := manga.Info().Title
-
-	// If it's a ProviderWithCache, try using its custom method
-	p, ok := provider.(*metadata.ProviderWithCache)
-	if ok {
-		return p.FindClosest(ctx, title, 3, 3)
-	}
-
-	// Else, simple "find closest" check (the first result)
-	metas, err := provider.Search(ctx, title)
-	if err != nil {
-		return nil, false, err
-	}
-	if len(metas) > 0 {
-		return metas[0], true, nil
-	}
-
-	return nil, false, nil
+	return provider.FindClosest(ctx, title, 3, 3)
 }
 
 // DownloadChapter downloads and saves chapter to the specified
@@ -348,31 +356,47 @@ func (c *Client) ReadChapter(
 		return nil
 	}
 
-	progress := int(math.Trunc(float64(chapter.Info().Number)))
-	meta := chapter.Volume().Manga().Metadata()
-	ids := []metadata.ID{meta.ID()}
-	ids = append(ids, meta.ExtraIDs()...)
-
-	// TODO: also do a search like before? the risk is
-	// not finding the correct anilist manga
-	anilistID := 0
-	for _, id := range ids {
-		if id.Source == metadata.IDSourceAnilist {
-			anilistID = id.Value()
-			break
-		}
+	if len(c.meta) == 0 {
+		return errors.New("no metadata Providers available to mark chapter as read")
 	}
 
-	// TODO: generalize this to mark as read on multiple metadata providers
-	if options.SaveAnilist {
-		// TODO: do the validation elsewhere?
-		if c.Anilist() == nil {
-			return errors.New("no anilist client is available")
+	var setProgressErrors []error
+	progress := int(math.Trunc(float64(chapter.Info().Number)))
+	mangaTitle := chapter.Volume().Manga().Info().Title
+	for id, p := range c.meta {
+		metaID := 0
+		// TODO: find a better way to get the metadata for the current provider
+		meta, found, err := p.FindClosest(ctx, mangaTitle, 3, 3)
+		if err != nil {
+			goto addError
 		}
-		return c.Anilist().SetMangaProgress(ctx, anilistID, progress)
+		if !found {
+			err = errors.New("no manga metadata found with Provider ID " + string(id))
+			goto addError
+		}
+		metaID = meta.ID().Value()
+
+		// TODO: add other providers
+		switch {
+		case id == metadata.IDCodeAnilist && options.SaveAnilist:
+			err = p.SetMangaProgress(ctx, metaID, progress)
+		case id == metadata.IDCodeMyAnimeList && options.SaveMyAnimeList:
+		}
+		if err != nil {
+			goto addError
+		}
+
+		continue
+	addError:
+		c.logger.Log("error while setting manga progress for Provider ID %q: %s", string(id), err.Error())
+		setProgressErrors = append(setProgressErrors, err)
 	}
 
 	// TODO: save to local history
+
+	if len(setProgressErrors) != 0 {
+		return errors.Join(setProgressErrors...)
+	}
 	return nil
 }
 

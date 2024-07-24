@@ -2,27 +2,12 @@ package anilist
 
 import (
 	"fmt"
-	"strconv"
 
+	"github.com/luevano/libmangal/metadata"
 	"github.com/philippgille/gokv"
 )
 
 const (
-	// QueryToIDs maps manga query to multiple anilit ids.
-	//
-	// ["berserk" => [7, 42, 69], "death note" => [887, 3, 134]]
-	CacheBucketNameQueryToIDs = "query-to-id"
-
-	// TitleToID maps manga title to anilist id.
-	//
-	// ["berserk" => 7, "death note" => 3]
-	CacheBucketNameTitleToID = "title-to-id"
-
-	// IDToManga maps anilist id to anilist manga.
-	//
-	// [7 => "{title: ..., image: ..., ...}"]
-	CacheBucketNameIDToManga = "id-to-manga"
-
 	// AccessToken maps username to access tokens (authentication).
 	//
 	// An User with the same name must be stored, too.
@@ -58,69 +43,6 @@ func (s *store) Close() error {
 	return s.store.Close()
 }
 
-func (s *store) getQueryIDs(query string) (ids []int, found bool, err error) {
-	err = s.open(CacheBucketNameQueryToIDs)
-	if err != nil {
-		return
-	}
-	defer s.Close()
-
-	found, err = s.store.Get(query, &ids)
-	return
-}
-
-func (s *store) setQueryIDs(query string, ids []int) (err error) {
-	err = s.open(CacheBucketNameQueryToIDs)
-	if err != nil {
-		return
-	}
-	defer s.Close()
-
-	return s.store.Set(query, ids)
-}
-
-func (s *store) getTitleID(title string) (id int, found bool, err error) {
-	err = s.open(CacheBucketNameTitleToID)
-	if err != nil {
-		return
-	}
-	defer s.Close()
-
-	found, err = s.store.Get(title, &id)
-	return
-}
-
-func (s *store) setTitleID(title string, id int) (err error) {
-	err = s.open(CacheBucketNameTitleToID)
-	if err != nil {
-		return
-	}
-	defer s.Close()
-
-	return s.store.Set(title, id)
-}
-
-func (s *store) getManga(id int) (manga Manga, found bool, err error) {
-	err = s.open(CacheBucketNameIDToManga)
-	if err != nil {
-		return
-	}
-	defer s.Close()
-
-	found, err = s.store.Get(strconv.Itoa(id), &manga)
-	return
-}
-
-func (s *store) setManga(id int, manga Manga) (err error) {
-	err = s.open(CacheBucketNameIDToManga)
-	if err != nil {
-		return
-	}
-	defer s.Close()
-
-	return s.store.Set(strconv.Itoa(id), manga)
-}
-
 func (s *store) getAuthToken(key string) (token string, found bool, err error) {
 	err = s.open(CacheBucketNameNameToAccessToken)
 	if err != nil {
@@ -152,7 +74,7 @@ func (s *store) deleteAuthToken(key string) (err error) {
 	return s.store.Delete(key)
 }
 
-func (s *store) getUser(name string) (user User, found bool, err error) {
+func (s *store) getUser(name string) (user metadata.User, found bool, err error) {
 	err = s.open(CacheBucketNameNameToUser)
 	if err != nil {
 		return
@@ -163,7 +85,7 @@ func (s *store) getUser(name string) (user User, found bool, err error) {
 	return
 }
 
-func (s *store) setUser(name string, user User) (err error) {
+func (s *store) setUser(name string, user metadata.User) (err error) {
 	err = s.open(CacheBucketNameNameToUser)
 	if err != nil {
 		return

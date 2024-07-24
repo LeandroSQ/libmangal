@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+
+	"github.com/luevano/libmangal/metadata"
 )
 
 const (
@@ -68,31 +70,31 @@ func (c CodeGrant) reqBody() map[string]string {
 // Logout of the authenticated user account.
 //
 // Returns an error if there is no authenticated user to be logged out.
-func (a *Anilist) Logout(deleteCache bool) error {
-	if !a.Authenticated() {
+func (p *Anilist) Logout(deleteCache bool) error {
+	if !p.Authenticated() {
 		return LogoutError("no authenticated user to logout")
 	}
 	// To loggout, removing the user and token is enough
-	username := a.user.Name()
-	a.user = User{}
-	a.token = ""
-	a.logger.Log("user %q logged out of anilist", username)
+	username := p.user.Name()
+	p.user = nil
+	p.token = ""
+	p.logger.Log("user %q logged out of anilist", username)
 
 	if deleteCache {
-		err := a.DeleteCachedUser(username)
+		err := p.DeleteCachedUser(username)
 		return LogoutError(err.Error())
 	}
 	return nil
 }
 
 // DeleteCachedUser will delete the specified user cached access token and data.
-func (a *Anilist) DeleteCachedUser(username string) error {
-	a.logger.Log("deleting cached authentication user data for %q", username)
-	err := a.store.deleteUser(username)
+func (p *Anilist) DeleteCachedUser(username string) error {
+	p.logger.Log("deleting cached authentication user data for %q", username)
+	err := p.store.deleteUser(username)
 	if err != nil {
 		return err
 	}
-	err = a.store.deleteAuthToken(username)
+	err = p.store.deleteAuthToken(username)
 	if err != nil {
 		return err
 	}
@@ -101,34 +103,34 @@ func (a *Anilist) DeleteCachedUser(username string) error {
 
 // AuthorizeCachedUser will try to get the cached authentication data for the given
 // username. If the data exists, Anilist will be authenticated with this user.
-func (a *Anilist) AuthorizeCachedUser(username string) (bool, error) {
-	a.logger.Log("authenticating Anilist via cached user %q", username)
+func (p *Anilist) AuthorizeCachedUser(username string) (bool, error) {
+	p.logger.Log("authenticating Anilist via cached user %q", username)
 	// Get stored token
-	token, found, err := a.store.getAuthToken(username)
+	token, found, err := p.store.getAuthToken(username)
 	if err != nil {
 		return false, AuthError(err.Error())
 	}
 	if !found {
 		return false, nil
 	}
-	a.token = token
+	p.token = token
 
 	// Get stored user (if there is a token, there should be an user)
-	user, found, err := a.store.getUser(username)
+	user, found, err := p.store.getUser(username)
 	if err != nil {
 		return false, AuthError(err.Error())
 	}
 	// If no user found, delete the found access token
 	if !found {
-		a.logger.Log("cached access token for user %q found but there is no cached user data, need to re-authenticate", username)
-		a.token = ""
-		err := a.store.deleteAuthToken(username)
+		p.logger.Log("cached access token for user %q found but there is no cached user data, need to re-authenticate", username)
+		p.token = ""
+		err := p.store.deleteAuthToken(username)
 		if err != nil {
 			return false, AuthError(err.Error())
 		}
 		return false, nil
 	}
-	a.user = user
+	p.user = user
 	return true, nil
 }
 
@@ -138,29 +140,29 @@ func (a *Anilist) AuthorizeCachedUser(username string) (bool, error) {
 //
 // When a client is authorized all API requests will
 // have the access token attached (will be authorized).
-func (a *Anilist) AuthorizeWithCodeGrant(ctx context.Context, codeGrant CodeGrant) error {
-	a.logger.Log("authenticating Anilist via code grant")
+func (p *Anilist) AuthorizeWithCodeGrant(ctx context.Context, codeGrant CodeGrant) error {
+	p.logger.Log("authenticating Anilist via code grant")
 	// Access token
-	token, err := a.getTokenFromCode(ctx, codeGrant)
+	token, err := p.getTokenFromCode(ctx, codeGrant)
 	if err != nil {
 		return AuthError(err.Error())
 	}
-	a.token = token
+	p.token = token
 
 	// Get authenticated user (this verifies the token)
-	user, err := a.getAuthenticatedUser(ctx)
+	user, err := p.getAuthenticatedUser(ctx)
 	if err != nil {
 		// remove token as it's possible it's not valid
-		a.token = ""
+		p.token = ""
 		return AuthError(err.Error())
 	}
-	a.user = user
+	p.user = user
 
 	// Store the user and token to cache
-	if err := a.store.setUser(user.Name(), user); err != nil {
+	if err := p.store.setUser(user.Name(), user); err != nil {
 		return AuthError(err.Error())
 	}
-	if err := a.store.setAuthToken(user.Name(), token); err != nil {
+	if err := p.store.setAuthToken(user.Name(), token); err != nil {
 		return AuthError(err.Error())
 	}
 	return nil
@@ -172,30 +174,30 @@ func (a *Anilist) AuthorizeWithCodeGrant(ctx context.Context, codeGrant CodeGran
 //
 // When a client is authorized all API requests will
 // have the access token attached (will be authorized).
-func (a *Anilist) AuthorizeWithAccessToken(ctx context.Context, token string) error {
-	a.logger.Log("authenticating Anilist via acces token")
-	a.token = token
+func (p *Anilist) AuthorizeWithAccessToken(ctx context.Context, token string) error {
+	p.logger.Log("authenticating Anilist via acces token")
+	p.token = token
 
 	// Get authenticated user (this verifies the token)
-	user, err := a.getAuthenticatedUser(ctx)
+	user, err := p.getAuthenticatedUser(ctx)
 	if err != nil {
 		// remove token as it's possible it's not valid
-		a.token = ""
+		p.token = ""
 		return AuthError(err.Error())
 	}
-	a.user = user
+	p.user = user
 
 	// Store the user and token to cache
-	if err := a.store.setUser(user.Name(), user); err != nil {
+	if err := p.store.setUser(user.Name(), user); err != nil {
 		return AuthError(err.Error())
 	}
-	if err := a.store.setAuthToken(user.Name(), token); err != nil {
+	if err := p.store.setAuthToken(user.Name(), token); err != nil {
 		return AuthError(err.Error())
 	}
 	return nil
 }
 
-func (a *Anilist) getTokenFromCode(ctx context.Context, codeGrant CodeGrant) (string, error) {
+func (p *Anilist) getTokenFromCode(ctx context.Context, codeGrant CodeGrant) (string, error) {
 	if err := codeGrant.Validate(); err != nil {
 		return "", err
 	}
@@ -204,7 +206,7 @@ func (a *Anilist) getTokenFromCode(ctx context.Context, codeGrant CodeGrant) (st
 		return "", err
 	}
 
-	resp, err := a.genericRequest(ctx, http.MethodPost, oAuthTokenURL, bytes.NewBuffer(body), false)
+	resp, err := p.genericRequest(ctx, http.MethodPost, oAuthTokenURL, bytes.NewBuffer(body), false)
 	if err != nil {
 		return "", err
 	}
@@ -223,19 +225,22 @@ func (a *Anilist) getTokenFromCode(ctx context.Context, codeGrant CodeGrant) (st
 }
 
 // getAuthenticatedUser will query for the user data to the Anilist API.
-func (a *Anilist) getAuthenticatedUser(ctx context.Context) (User, error) {
+func (p *Anilist) getAuthenticatedUser(ctx context.Context) (metadata.User, error) {
 	body := apiRequestBody{
 		Query: queryViewer,
 	}
-	data, err := sendRequest[userData](ctx, a, body)
+	data, err := sendRequest[userData](ctx, p, body)
 	if err != nil {
-		return User{}, errors.New("getting authenticated user data: " + err.Error())
+		return nil, errors.New("getting authenticated user data: " + err.Error())
+	}
+	if data.Viewer == nil {
+		return nil, errors.New("received user data is nil")
 	}
 	return data.Viewer, nil
 }
 
 // Authenticated returns true if there is a currently authenticated
 // user (there exists an available access token and user data).
-func (a *Anilist) Authenticated() bool {
-	return a.token != ""
+func (p *Anilist) Authenticated() bool {
+	return p.token != ""
 }

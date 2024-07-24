@@ -83,7 +83,7 @@ func sendRequest[Data any](
 	return res.Data, nil
 }
 
-func (a *Anilist) genericRequest(ctx context.Context, method, url string, body io.Reader, authIfAvailable bool) (*http.Response, error) {
+func (p *Anilist) genericRequest(ctx context.Context, method, url string, body io.Reader, authIfAvailable bool) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, err
@@ -91,9 +91,9 @@ func (a *Anilist) genericRequest(ctx context.Context, method, url string, body i
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
-	if authIfAvailable && a.Authenticated() {
-		req.Header.Set("Authorization", "Bearer "+a.token)
+	if authIfAvailable && p.Authenticated() {
+		req.Header.Set("Authorization", "Bearer "+p.token)
 	}
 
-	return a.options.HTTPClient.Do(req)
+	return p.options.HTTPClient.Do(req)
 }

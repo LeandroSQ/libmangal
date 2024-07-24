@@ -21,8 +21,11 @@ type ReadOptions struct {
 	// SaveHistory will save chapter to local history if ReadAfter is enabled.
 	SaveHistory bool
 
-	// SaveAnilist will save Anilist reading history if ReadAfter is enabled and logged in to the Anilist.
+	// SaveAnilist will save Anilist reading history if logged in and ReadAfter is enabled.
 	SaveAnilist bool
+
+	// SaveMyAnimeList will save MyAnimeList reading history if logged in and ReadAfter is enabled.
+	SaveMyAnimeList bool
 }
 
 // DefaultReadOptions constructs default ReadOptions.
