@@ -123,6 +123,7 @@ func NewProviderWithCache(options ProviderWithCacheOptions) (*ProviderWithCache,
 	l := options.Provider.Logger()
 	if l == nil {
 		l = logger.NewLogger()
+		options.Provider.SetLogger(l)
 	}
 
 	p := &ProviderWithCache{
