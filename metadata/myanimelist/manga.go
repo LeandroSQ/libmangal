@@ -117,7 +117,7 @@ func (m *Manga) String() string {
 	if m.ID().Value() == 0 {
 		return base + ")"
 	}
-	return base + ") [" + m.ID().Code + "id-" + strconv.Itoa(m.ID().Value()) + "]"
+	return base + ") [" + string(m.ID().Code) + "id-" + strconv.Itoa(m.ID().Value()) + "]"
 }
 
 // Title is the English title of the manga.

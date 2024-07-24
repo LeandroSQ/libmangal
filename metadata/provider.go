@@ -17,7 +17,12 @@ type ProviderInfo struct {
 	// ID is the unique identifier of the provider.
 	//
 	// For a ProviderWithCache this is used as the cache DB name.
-	ID string `json:"id"`
+	ID IDCode `json:"id"`
+
+	// Source is the source of the metadata.
+	//
+	// E.g. IDSourceAnilist, IDSourceMyAnimeList, etc.
+	Source IDSource `json:"source"`
 
 	// Name is the non-empty name of the provider.
 	Name string `json:"name"`
@@ -88,7 +93,8 @@ type Provider interface {
 	Search(ctx context.Context, query string) ([]Metadata, error)
 }
 
-// ProviderWithCache is a Provider implementation with cache features.
+// ProviderWithCache is a Provider implementation with
+// cache features, and extra search behavior.
 //
 // This is a wrapper on a normal Provider.
 type ProviderWithCache struct {
@@ -98,28 +104,25 @@ type ProviderWithCache struct {
 }
 
 // NewProviderWithCache constructs new Provider with cache given the Provider.
-func NewProviderWithCache(
-	provider Provider,
-	cacheStore func(dbName, bucketName string) (gokv.Store, error),
-) (*ProviderWithCache, error) {
-	if provider == nil {
+func NewProviderWithCache(options ProviderWithCacheOptions) (*ProviderWithCache, error) {
+	if options.Provider == nil {
 		return nil, Error("nil Provider passed to ProviderWithCache")
 	}
 
 	s := store{
 		openStore: func(bucketName string) (gokv.Store, error) {
-			return cacheStore(provider.Info().ID, bucketName)
+			return options.CacheStore(string(options.Provider.Info().ID), bucketName)
 		},
 	}
 
 	// ensure the logger is non-nil
-	l := provider.Logger()
+	l := options.Provider.Logger()
 	if l == nil {
 		l = logger.NewLogger()
 	}
 
 	p := &ProviderWithCache{
-		provider: provider,
+		provider: options.Provider,
 		store:    s,
 		logger:   l,
 	}
@@ -160,7 +163,7 @@ func (p *ProviderWithCache) Logger() *logger.Logger {
 //
 // Implementation should only handle the request and and marshaling.
 func (p *ProviderWithCache) SearchByID(ctx context.Context, id int) (Metadata, bool, error) {
-	p.logger.Log("searching manga metadata with id %d on %q", id, p.provider.Info().ID)
+	p.logger.Log("searching manga metadata with id %d on %q", id, p.Info().Name)
 	meta, found, err := p.store.getMeta(id)
 	if err != nil {
 		return nil, false, Error(err.Error())
@@ -189,7 +192,7 @@ func (p *ProviderWithCache) SearchByID(ctx context.Context, id int) (Metadata, b
 //
 // Implementation should only handle the request and and marshaling.
 func (p *ProviderWithCache) Search(ctx context.Context, query string) ([]Metadata, error) {
-	p.logger.Log("searching manga metadata with query %q on %q", query, p.provider.Info().ID)
+	p.logger.Log("searching manga metadata with query %q on %q", query, p.Info().Name)
 	ids, found, err := p.store.getQueryIDs(query)
 	if err != nil {
 		return nil, Error(err.Error())

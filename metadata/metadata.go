@@ -34,12 +34,14 @@ const (
 	IDSourceAnimePlanet
 )
 
+type IDCode string
+
 const (
-	IDCodeAnilist      string = "al"
-	IDCodeMyAnimeList  string = "mal"
-	IDCodeKitsu        string = "kt"
-	IDCodeMangaUpdates string = "mu"
-	IDCodeAnimePlanet  string = "ap"
+	IDCodeAnilist      IDCode = "al"
+	IDCodeMyAnimeList  IDCode = "mal"
+	IDCodeKitsu        IDCode = "kt"
+	IDCodeMangaUpdates IDCode = "mu"
+	IDCodeAnimePlanet  IDCode = "ap"
 )
 
 // Date is a simple date holder.
@@ -73,7 +75,7 @@ type ID struct {
 	// Must be non-empty.
 	//
 	// For the Provider metadata, the code must be short, ideally 2-3 chars.
-	Code string
+	Code IDCode
 }
 
 // Value is the integer value of the ID.

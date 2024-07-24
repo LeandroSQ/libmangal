@@ -51,7 +51,7 @@ func (m *Metadata) String() string {
 	if m.ID().Value() == 0 || m.ID().Code == "" {
 		return base + ")"
 	}
-	return base + ") [" + m.ID().Code + "-" + strconv.Itoa(m.ID().Value()) + "]"
+	return base + ") [" + string(m.ID().Code) + "-" + strconv.Itoa(m.ID().Value()) + "]"
 }
 
 // Title is the English title of the manga.
@@ -205,7 +205,7 @@ func (m *Metadata) ID() metadata.ID {
 	return metadata.ID{
 		Raw:    m.ProviderID,
 		Source: metadata.IDSourceProvider,
-		Code:   m.ProviderIDCode,
+		Code:   metadata.IDCode(m.ProviderIDCode),
 	}
 }
 

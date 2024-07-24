@@ -13,7 +13,8 @@ import (
 const apiURL = "https://api.myanimelist.net/v2"
 
 var info = metadata.ProviderInfo{
-	ID:      "myanimelist",
+	ID:      metadata.IDCodeMyAnimeList,
+	Source:  metadata.IDSourceMyAnimeList,
 	Name:    "MyAnimeList",
 	Version: "0.1.0",
 	Website: "https://myanimelist.net/",
