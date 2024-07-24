@@ -11,14 +11,6 @@ type MangaInfo struct {
 	// Title of the manga.
 	Title string `json:"title"`
 
-	// AnilistSearch is the title that will be used for
-	// an Anilist search.
-	//
-	// This is a separate field as Title could be on any
-	// language, but Anilist only supports searching for
-	// english, native and romaji titles.
-	AnilistSearch string `json:"anilist_search"`
-
 	// URL leading to manga page web page.
 	URL string `json:"url"`
 

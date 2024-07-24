@@ -119,9 +119,9 @@ func (c *Client) Info() ProviderInfo {
 //
 // 1. If the manga contains non-nil metadata, by its Anilist ID if available.
 //
-// 2. If the manga title (priority on AnilistSearch field, then Title field) is binded to an Anilist ID.
+// 2. If the manga Title field is binded to an Anilist ID.
 //
-// 3. Otherwise find closest anilist manga (FindClosestManga) by using the manga Title (priority on AnilistSearch field) field.
+// 3. Otherwise find closest anilist manga (FindClosestManga) by using the manga Title field.
 func (c *Client) SearchMetadata(
 	ctx context.Context,
 	manga mangadata.Manga,

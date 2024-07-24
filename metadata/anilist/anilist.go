@@ -196,9 +196,9 @@ func (a *Anilist) searchMangas(
 //
 // 1. If the manga contains non-nil metadata, by its Anilist ID if available.
 //
-// 2. If the manga title (priority on AnilistSearch field, then Title field) is binded to an Anilist ID.
+// 2. If the manga Title field is binded to an Anilist ID.
 //
-// 3. Otherwise find closest anilist manga (FindClosestManga) by using the manga Title (priority on AnilistSearch field) field.
+// 3. Otherwise find closest anilist manga (FindClosestManga) by using the manga Title field.
 func (a *Anilist) SearchByManga(
 	ctx context.Context,
 	manga mangadata.Manga,
@@ -220,10 +220,7 @@ func (a *Anilist) SearchByManga(
 	// that the found anilist manga is 100% corresponding to
 	// the manga requested, there are some instances in which
 	// the result is wrong
-	title := manga.Info().AnilistSearch
-	if title == "" {
-		title = manga.Info().Title
-	}
+	title := manga.Info().Title
 
 	return a.FindClosestManga(ctx, title)
 }
