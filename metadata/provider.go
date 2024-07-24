@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/philippgille/gokv"
@@ -91,6 +92,9 @@ type Provider interface {
 	//
 	// Implementation should only handle the request and and marshaling.
 	Search(ctx context.Context, query string) ([]Metadata, error)
+
+	// SetMangaProgress sets the reading progress for a given manga metadata id.
+	SetMangaProgress(ctx context.Context, id, chapterNumber int) error
 }
 
 // ProviderWithCache is a Provider implementation with
@@ -188,6 +192,8 @@ func (p *ProviderWithCache) SearchByID(ctx context.Context, id int) (Metadata, b
 	return meta, true, nil
 }
 
+// TODO: implement cache for title (get single id by title if existent)?
+//
 // Search for metadata with the given query.
 //
 // Implementation should only handle the request and and marshaling.
@@ -236,4 +242,96 @@ func (p *ProviderWithCache) Search(ctx context.Context, query string) ([]Metadat
 	}
 
 	return metas, nil
+}
+
+// FindClosest metadata with the given title with its closest result.
+func (p *ProviderWithCache) FindClosest(ctx context.Context, title string, tries, steps int) (Metadata, bool, error) {
+	p.logger.Log("finding closest manga metadata with title %q on %q", title, p.Info().Name)
+
+	id, found, err := p.store.getTitleID(title)
+	if err != nil {
+		return nil, false, Error(err.Error())
+	}
+	if found {
+		meta, found, err := p.store.getMeta(id)
+		if err != nil {
+			return nil, false, Error(err.Error())
+		}
+
+		if found {
+			return meta, true, nil
+		}
+	}
+
+	meta, ok, err := p.findClosest(ctx, title, tries, steps)
+	if err != nil {
+		return nil, false, Error(err.Error())
+	}
+	if !ok {
+		return nil, false, nil
+	}
+
+	id, err = strconv.Atoi(meta.ID().Raw)
+	if err != nil {
+		return nil, false, Error(err.Error())
+	}
+	err = p.store.setTitleID(title, id)
+	if err != nil {
+		return nil, false, Error(err.Error())
+	}
+
+	return meta, true, nil
+}
+
+func (p *ProviderWithCache) findClosest(ctx context.Context, title string, tries, step int) (Metadata, bool, error) {
+	for i := 0; i < tries; i++ {
+		p.logger.Log("finding closest try %d/%d", i+1, tries)
+
+		metas, err := p.Search(ctx, title)
+		if err != nil {
+			return nil, false, err
+		}
+
+		if len(metas) > 0 {
+			closest := metas[0]
+			p.logger.Log("found closest: %q with id %d", closest.String(), closest.ID)
+			return closest, true, nil
+		}
+
+		// try again with a different title
+		// remove `step` characters from the end of the title
+		// avoid removing the last character or going out of bounds
+		var newLen int
+
+		title = strings.TrimSpace(title)
+
+		if len(title) > step {
+			newLen = len(title) - step
+		} else if len(title) > 1 {
+			newLen = len(title) - 1
+		} else {
+			break
+		}
+
+		title = title[:newLen]
+	}
+	return nil, false, nil
+}
+
+// BindTitleWithID sets a given id to a title, so on each title search
+// the same manga metadata with that id is obtained.
+func (p *ProviderWithCache) BindTitleWithID(title string, id int) error {
+	err := p.store.setTitleID(title, id)
+	if err != nil {
+		return Error(err.Error())
+	}
+
+	return nil
+}
+
+// SetMangaProgress sets the reading progress for a given manga metadata id.
+//
+// For ProviderWithCache this is only a wrapper around the actual provider's method.
+func (p *ProviderWithCache) SetMangaProgress(ctx context.Context, id, chapterNumber int) error {
+	return p.provider.SetMangaProgress(ctx, id, chapterNumber)
 }

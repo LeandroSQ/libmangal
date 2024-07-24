@@ -143,6 +143,58 @@ func (c *Client) SearchMetadata(
 	return &anilistManga, nil
 }
 
+// SearchByManga is a convenience method to search given a Manga.
+// It's meant to be used by the SearchMetadata method.
+//
+// Tries to search manga metadata in the following order:
+//
+// 1. If the manga contains non-nil metadata, by its metadata ID if available.
+//
+// 2. If the provider is a ProviderWithCache:
+//
+// 2.1 If the manga title is binded to a metadata ID.
+//
+// 2.2 Find closest manga metadata (FindClosest) by using the manga Title field.
+//
+// 3. If not a ProviderWithCache, search mangas and get the first result (if any).
+func (c *Client) SearchByManga(ctx context.Context, provider metadata.Provider, manga mangadata.Manga) (metadata.Metadata, bool, error) {
+	c.logger.Log("finding manga metadata by (libmangal) manga on %q", c.Info().Name)
+
+	// Try to search by metadata ID if it is available
+	meta := manga.Metadata()
+	for _, id := range meta.ExtraIDs() {
+		if id.Source == provider.Info().Source {
+			anilistManga, found, err := provider.SearchByID(ctx, id.Value())
+			if err == nil && found {
+				return anilistManga, true, nil
+			}
+		}
+	}
+
+	// Else try to search by the title, this doesn't ensure
+	// that the found manga metadata is 100% corresponding to
+	// the manga requested, there are some instances in which
+	// the result will be wrong
+	title := manga.Info().Title
+
+	// If it's a ProviderWithCache, try using its custom method
+	p, ok := provider.(*metadata.ProviderWithCache)
+	if ok {
+		return p.FindClosest(ctx, title, 3, 3)
+	}
+
+	// Else, simple "find closest" check (the first result)
+	metas, err := provider.Search(ctx, title)
+	if err != nil {
+		return nil, false, err
+	}
+	if len(metas) > 0 {
+		return metas[0], true, nil
+	}
+
+	return nil, false, nil
+}
+
 // DownloadChapter downloads and saves chapter to the specified
 // directory in the given format.
 //

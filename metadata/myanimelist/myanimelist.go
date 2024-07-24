@@ -112,3 +112,10 @@ func (p *MyAnimeList) Search(ctx context.Context, query string) ([]metadata.Meta
 	p.logger.Log("found %d manga(s) on MyAnimeList", len(mangas))
 	return mangas, nil
 }
+
+// FIX: implement
+//
+// SetMangaProgress sets the reading progress for a given manga metadata id.
+func (p *MyAnimeList) SetMangaProgress(ctx context.Context, id, chapterNumber int) error {
+	return errors.ErrUnsupported
+}
