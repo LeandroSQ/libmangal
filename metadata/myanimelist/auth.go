@@ -18,8 +18,8 @@ func (p *MyAnimeList) Authenticated() bool {
 // FIX: implement
 //
 // Login authorizes an user with the given credentials.
-func (p *MyAnimeList) Login(ctx context.Context, credentials metadata.CodeGrant) (metadata.User, metadata.AuthData, error) {
-	return nil, metadata.AuthData{}, errors.ErrUnsupported
+func (p *MyAnimeList) Login(ctx context.Context, credentials metadata.CodeGrant) error {
+	return errors.ErrUnsupported
 }
 
 // FIX: implement

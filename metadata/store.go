@@ -10,7 +10,7 @@ const (
 	// QueryToIDs maps manga query to multiple metadata ids.
 	//
 	// ["berserk" => [7, 42, 69], "death note" => [887, 3, 134]]
-	CacheBucketNameQueryToIDs = "query-to-id"
+	CacheBucketNameQueryToIDs = "query-to-ids"
 
 	// TitleToID maps manga title to metadata id.
 	//
@@ -21,6 +21,16 @@ const (
 	//
 	// [7 => "{title: ..., image: ..., ...}"]
 	CacheBucketNameIDToManga = "id-to-manga"
+
+	// AccessData maps username to access data (authentication).
+	//
+	// An User with the same name must be stored, too.
+	CacheBucketNameNameToAccessData = "name-to-access-data"
+
+	// NameToUser maps username to an user (authenticated user).
+	//
+	// An AccessData with the same name must be stored, too.
+	CacheBucketNameNameToUser = "name-to-user"
 )
 
 type store struct {
@@ -102,4 +112,66 @@ func (s *store) setMeta(id int, manga Metadata) (err error) {
 	defer s.Close()
 
 	return s.store.Set(strconv.Itoa(id), manga)
+}
+
+func (s *store) getAuthData(key string) (authData AuthData, found bool, err error) {
+	err = s.open(CacheBucketNameNameToAccessData)
+	if err != nil {
+		return
+	}
+	defer s.Close()
+
+	found, err = s.store.Get(key, &authData)
+	return
+}
+
+func (s *store) setAuthData(key string, authData AuthData) (err error) {
+	err = s.open(CacheBucketNameNameToAccessData)
+	if err != nil {
+		return
+	}
+	defer s.Close()
+
+	return s.store.Set(key, authData)
+}
+
+func (s *store) deleteAuthData(key string) (err error) {
+	err = s.open(CacheBucketNameNameToAccessData)
+	if err != nil {
+		return
+	}
+	defer s.Close()
+
+	return s.store.Delete(key)
+}
+
+func (s *store) getUser(name string) (user User, found bool, err error) {
+	err = s.open(CacheBucketNameNameToUser)
+	if err != nil {
+		return
+	}
+	defer s.Close()
+
+	found, err = s.store.Get(name, &user)
+	return
+}
+
+func (s *store) setUser(name string, user User) (err error) {
+	err = s.open(CacheBucketNameNameToUser)
+	if err != nil {
+		return
+	}
+	defer s.Close()
+
+	return s.store.Set(name, user)
+}
+
+func (s *store) deleteUser(name string) (err error) {
+	err = s.open(CacheBucketNameNameToUser)
+	if err != nil {
+		return
+	}
+	defer s.Close()
+
+	return s.store.Delete(name)
 }

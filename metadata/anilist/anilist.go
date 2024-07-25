@@ -6,7 +6,6 @@ import (
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/luevano/libmangal/metadata"
-	"github.com/philippgille/gokv"
 )
 
 const apiURL = "https://graphql.anilist.co"
@@ -29,17 +28,10 @@ type Anilist struct {
 
 	options Options
 	logger  *logger.Logger
-	store   store // still currently needed for the auth/user
 }
 
 // NewAnilist constructs new Anilist client.
 func NewAnilist(options Options) (*Anilist, error) {
-	s := store{
-		openStore: func(bucketName string) (gokv.Store, error) {
-			return options.CacheStore(string(info.ID), bucketName)
-		},
-	}
-
 	l := options.Logger
 	if l == nil {
 		l = logger.NewLogger()
@@ -47,20 +39,6 @@ func NewAnilist(options Options) (*Anilist, error) {
 	anilist := &Anilist{
 		options: options,
 		logger:  l,
-		store:   s,
-	}
-
-	// If no username provided, don't even check for token/user data
-	if options.Username == "" {
-		return anilist, nil
-	}
-
-	found, err := anilist.AuthorizeCachedUser(options.Username)
-	if err != nil {
-		return nil, err
-	}
-	if !found {
-		anilist.logger.Log("no cached authentication data found for user %q", options.Username)
 	}
 
 	return anilist, nil
@@ -163,10 +141,27 @@ func (p *Anilist) SetMangaProgress(ctx context.Context, id, chapterNumber int) e
 	return nil
 }
 
+// SetAuthUser sets the provided User and AuthData.
+//
+// Meant to be used by ProviderWithCache to set cached values.
+func (p *Anilist) SetAuthUser(user metadata.User, authData metadata.AuthData) error {
+	p.user = user
+	p.authData = authData
+	return nil
+}
+
 // User returns the currently authenticated user.
 func (p *Anilist) User() (metadata.User, error) {
 	if !p.Authenticated() {
 		return nil, errors.New("Anilist is not authenticated")
 	}
 	return p.user, nil
+}
+
+// AuthData returns the currently authentication data.
+func (p *Anilist) AuthData() (metadata.AuthData, error) {
+	if !p.Authenticated() {
+		return metadata.AuthData{}, errors.New("Anilist is not authenticated")
+	}
+	return p.authData, nil
 }
