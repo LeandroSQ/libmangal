@@ -14,10 +14,14 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type metaProviders map[metadata.IDCode]metadata.ProviderWithCache
+type metaProviders map[metadata.IDCode]*metadata.ProviderWithCache
 
 // Add will add or update the metadata Provider with its id.
-func (m *metaProviders) Add(provider metadata.ProviderWithCache) error {
+func (m *metaProviders) Add(provider *metadata.ProviderWithCache) error {
+	if provider == nil {
+		return errors.New("Provider must be non-nil")
+	}
+
 	id := provider.Info().ID
 	if id == "" {
 		return errors.New("metadata Provider ID must be non-empty")
@@ -32,14 +36,14 @@ func (m *metaProviders) Add(provider metadata.ProviderWithCache) error {
 }
 
 // Get returns the requested metadata Provider for the given id.
-func (m *metaProviders) Get(id metadata.IDCode) (metadata.ProviderWithCache, error) {
+func (m *metaProviders) Get(id metadata.IDCode) (*metadata.ProviderWithCache, error) {
 	if m == nil {
-		return metadata.ProviderWithCache{}, errors.New("no metadata Providers available")
+		return nil, errors.New("no metadata Providers available")
 	}
 
 	p, ok := (*m)[id]
 	if !ok {
-		return metadata.ProviderWithCache{}, errors.New("no metadata Provider found with ID " + string(id))
+		return nil, errors.New("no metadata Provider found with ID " + string(id))
 	}
 	return p, nil
 }
@@ -89,12 +93,12 @@ func (c *Client) FS() afero.Fs {
 }
 
 // AddMetadataProvider will add or update the metadata Provider.
-func (c *Client) AddMetadataProvider(provider metadata.ProviderWithCache) error {
+func (c *Client) AddMetadataProvider(provider *metadata.ProviderWithCache) error {
 	return c.meta.Add(provider)
 }
 
 // GetMetadataProvider returns the requested metadata Provider for the given id.
-func (c *Client) GetMetadataProvider(id metadata.IDCode) (metadata.ProviderWithCache, error) {
+func (c *Client) GetMetadataProvider(id metadata.IDCode) (*metadata.ProviderWithCache, error) {
 	return c.meta.Get(id)
 }
 
@@ -181,7 +185,7 @@ func (c *Client) SearchMetadata(
 // 2 If the manga title is binded to a metadata ID.
 //
 // 3 Find closest manga metadata (FindClosest) by using the manga Title field.
-func (c *Client) SearchByManga(ctx context.Context, provider metadata.ProviderWithCache, manga mangadata.Manga) (metadata.Metadata, bool, error) {
+func (c *Client) SearchByManga(ctx context.Context, provider *metadata.ProviderWithCache, manga mangadata.Manga) (metadata.Metadata, bool, error) {
 	c.logger.Log("finding manga metadata by (libmangal) manga on %q", c.Info().Name)
 
 	// Try to search by metadata ID if it is available
