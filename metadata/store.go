@@ -111,7 +111,7 @@ func (s *store) setMeta(id int, manga Metadata) (err error) {
 	}
 	defer s.Close()
 
-	return s.store.Set(strconv.Itoa(id), manga)
+	return s.store.Set(strconv.Itoa(id), &manga)
 }
 
 func (s *store) getAuthData(key string) (authData AuthData, found bool, err error) {
@@ -163,7 +163,7 @@ func (s *store) setUser(name string, user User) (err error) {
 	}
 	defer s.Close()
 
-	return s.store.Set(name, user)
+	return s.store.Set(name, &user)
 }
 
 func (s *store) deleteUser(name string) (err error) {
