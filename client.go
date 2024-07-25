@@ -14,46 +14,12 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type metaProviders map[metadata.IDCode]*metadata.ProviderWithCache
-
-// Add will add or update the metadata Provider with its id.
-func (m *metaProviders) Add(provider *metadata.ProviderWithCache) error {
-	if provider == nil {
-		return errors.New("Provider must be non-nil")
-	}
-
-	id := provider.Info().ID
-	if id == "" {
-		return errors.New("metadata Provider ID must be non-empty")
-	}
-	if m == nil {
-		m = &metaProviders{id: provider}
-		return nil
-	}
-
-	(*m)[id] = provider
-	return nil
-}
-
-// Get returns the requested metadata Provider for the given id.
-func (m *metaProviders) Get(id metadata.IDCode) (*metadata.ProviderWithCache, error) {
-	if m == nil {
-		return nil, errors.New("no metadata Providers available")
-	}
-
-	p, ok := (*m)[id]
-	if !ok {
-		return nil, errors.New("no metadata Provider found with ID " + string(id))
-	}
-	return p, nil
-}
-
 // Client is the wrapper around Provider with the extended functionality.
 //
 // It's the core of the libmangal.
 type Client struct {
 	provider Provider
-	meta     metaProviders
+	meta     map[metadata.IDCode]*metadata.ProviderWithCache
 	options  ClientOptions
 	logger   *logger.Logger
 }
@@ -83,6 +49,7 @@ func NewClient(
 
 	return &Client{
 		provider: provider,
+		meta:     map[metadata.IDCode]*metadata.ProviderWithCache{},
 		options:  options,
 		logger:   logger,
 	}, nil
@@ -94,12 +61,26 @@ func (c *Client) FS() afero.Fs {
 
 // AddMetadataProvider will add or update the metadata Provider.
 func (c *Client) AddMetadataProvider(provider *metadata.ProviderWithCache) error {
-	return c.meta.Add(provider)
+	if provider == nil {
+		return errors.New("Provider must be non-nil")
+	}
+
+	id := provider.Info().ID
+	if id == "" {
+		return errors.New("metadata Provider ID must be non-empty")
+	}
+
+	c.meta[id] = provider
+	return nil
 }
 
 // GetMetadataProvider returns the requested metadata Provider for the given id.
 func (c *Client) GetMetadataProvider(id metadata.IDCode) (*metadata.ProviderWithCache, error) {
-	return c.meta.Get(id)
+	p, ok := c.meta[id]
+	if !ok {
+		return nil, errors.New("no metadata Provider found with ID " + string(id))
+	}
+	return p, nil
 }
 
 func (c *Client) Logger() *logger.Logger {
