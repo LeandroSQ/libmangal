@@ -70,6 +70,7 @@ func (c *Client) AddMetadataProvider(provider *metadata.ProviderWithCache) error
 		return errors.New("metadata Provider ID must be non-empty")
 	}
 
+	provider.SetLogger(c.logger)
 	c.meta[id] = provider
 	return nil
 }
@@ -167,7 +168,7 @@ func (c *Client) SearchMetadata(
 //
 // 3 Find closest manga metadata (FindClosest) by using the manga Title field.
 func (c *Client) SearchByManga(ctx context.Context, provider *metadata.ProviderWithCache, manga mangadata.Manga) (metadata.Metadata, bool, error) {
-	c.logger.Log("finding manga metadata by (libmangal) manga on %q", c.Info().Name)
+	c.logger.Log("searching metadata by (libmangal) manga on %q", c.Info().Name)
 
 	// Try to search by metadata ID if it is available
 	meta := manga.Metadata()

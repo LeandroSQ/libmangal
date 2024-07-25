@@ -34,6 +34,7 @@ func NewMAL(options Options) (*MyAnimeList, error) {
 		return nil, errors.New("MAL ClientID must not be empty")
 	}
 
+	// ensure the used logger is not nil
 	l := options.Logger
 	if l == nil {
 		l = logger.NewLogger()
@@ -56,15 +57,8 @@ func (p *MyAnimeList) Info() metadata.ProviderInfo {
 }
 
 // SetLogger sets logger to use for this provider.
-//
-// Setting a nil logger will create a new one.
 func (p *MyAnimeList) SetLogger(_logger *logger.Logger) {
-	if _logger != nil {
-		// p.logger is guaranteed to be non-nil
-		*p.logger = *_logger
-	} else {
-		p.logger = logger.NewLogger()
-	}
+	p.logger = _logger
 }
 
 // Logger returns the set logger.

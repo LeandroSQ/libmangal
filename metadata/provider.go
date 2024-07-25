@@ -74,8 +74,6 @@ type Provider interface {
 	Info() ProviderInfo
 
 	// SetLogger sets logger to use for this provider.
-	//
-	// Setting a nil logger will create a new one.
 	SetLogger(*logger.Logger)
 
 	// Logger returns the set logger.
@@ -171,15 +169,8 @@ func (p *ProviderWithCache) Info() ProviderInfo {
 }
 
 // SetLogger sets logger to use for this provider.
-//
-// Setting a nil logger will create a new one.
-func (p *ProviderWithCache) SetLogger(_logger *logger.Logger) {
-	if _logger != nil {
-		// p.logger is guaranteed to be non-nil
-		*p.logger = *_logger
-	} else {
-		p.logger = logger.NewLogger()
-	}
+func (p *ProviderWithCache) SetLogger(logger *logger.Logger) {
+	p.logger = logger
 	p.provider.SetLogger(p.logger)
 }
 

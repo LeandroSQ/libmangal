@@ -32,6 +32,7 @@ type Anilist struct {
 
 // NewAnilist constructs new Anilist client.
 func NewAnilist(options Options) (*Anilist, error) {
+	// ensure the used logger is not nil
 	l := options.Logger
 	if l == nil {
 		l = logger.NewLogger()
@@ -54,15 +55,8 @@ func (p *Anilist) Info() metadata.ProviderInfo {
 }
 
 // SetLogger sets logger to use for this provider.
-//
-// Setting a nil logger will create a new one.
 func (p *Anilist) SetLogger(_logger *logger.Logger) {
-	if _logger != nil {
-		// p.logger is guaranteed to be non-nil
-		*p.logger = *_logger
-	} else {
-		p.logger = logger.NewLogger()
-	}
+	p.logger = _logger
 }
 
 // Logger returns the set logger.
