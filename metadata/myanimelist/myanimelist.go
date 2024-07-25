@@ -119,3 +119,10 @@ func (p *MyAnimeList) Search(ctx context.Context, query string) ([]metadata.Meta
 func (p *MyAnimeList) SetMangaProgress(ctx context.Context, id, chapterNumber int) error {
 	return errors.ErrUnsupported
 }
+
+// FIX: implement
+//
+// User returns the currently authenticated user.
+func (p *MyAnimeList) User() (metadata.User, error) {
+	return nil, errors.ErrUnsupported
+}

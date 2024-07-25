@@ -24,8 +24,8 @@ var _ metadata.Provider = (*Anilist)(nil)
 // Anilist is the Anilist client.
 type Anilist struct {
 	// authenticated user info
-	user  metadata.User
-	token string
+	user     metadata.User
+	authData metadata.AuthData
 
 	options Options
 	logger  *logger.Logger

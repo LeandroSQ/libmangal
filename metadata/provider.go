@@ -95,6 +95,24 @@ type Provider interface {
 
 	// SetMangaProgress sets the reading progress for a given manga metadata id.
 	SetMangaProgress(ctx context.Context, id, chapterNumber int) error
+
+	// Authenticated returns true if the Provider is
+	// currently authenticated (user logged in).
+	Authenticated() bool
+
+	// User returns the currently authenticated user.
+	User() (User, error)
+
+	// TODO: decide if this should be split into multiple login versions,
+	// or if each provider should handle the credentials as pleased (like anilist,
+	// if there is no ClientSecret, it assumes it's an implicit grant and uses the
+	// Code as the AccessToken
+	//
+	// Login authorizes an user with the given credentials.
+	Login(ctx context.Context, credentials CodeGrant) (User, AuthData, error)
+
+	// Logout de-authorizes the currently authorized user.
+	Logout() error
 }
 
 // ProviderWithCache is a Provider implementation with
@@ -335,4 +353,37 @@ func (p *ProviderWithCache) BindTitleWithID(title string, id int) error {
 // For ProviderWithCache this is only a wrapper around the actual provider's method.
 func (p *ProviderWithCache) SetMangaProgress(ctx context.Context, id, chapterNumber int) error {
 	return p.provider.SetMangaProgress(ctx, id, chapterNumber)
+}
+
+// TODO: implement cache
+//
+// Authenticated returns true if the Provider is
+// currently authenticated (user logged in).
+func (p *ProviderWithCache) Authenticated() bool {
+	return p.provider.Authenticated()
+}
+
+// TODO: implement cache
+//
+// User returns the currently authenticated user.
+func (p *ProviderWithCache) User() (User, error) {
+	return p.provider.User()
+}
+
+// TODO: implement cache
+//
+// Login authorizes an user with the given credentials.
+func (p *ProviderWithCache) Login(ctx context.Context, credentials CodeGrant) (User, AuthData, error) {
+	user, authData, err := p.provider.Login(ctx, credentials)
+	if err != nil {
+		return nil, AuthData{}, AuthError(err.Error())
+	}
+	return user, authData, nil
+}
+
+// TODO: implement separate companion method to store to cache (and delete)
+//
+// Logout de-authorizes the currently authorized user.
+func (p *ProviderWithCache) Logout() error {
+	return p.provider.Logout()
 }

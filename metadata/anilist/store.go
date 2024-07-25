@@ -43,28 +43,28 @@ func (s *store) Close() error {
 	return s.store.Close()
 }
 
-func (s *store) getAuthToken(key string) (token string, found bool, err error) {
+func (s *store) getAuthData(key string) (authData metadata.AuthData, found bool, err error) {
 	err = s.open(CacheBucketNameNameToAccessToken)
 	if err != nil {
 		return
 	}
 	defer s.Close()
 
-	found, err = s.store.Get(key, &token)
+	found, err = s.store.Get(key, &authData)
 	return
 }
 
-func (s *store) setAuthToken(key, authToken string) (err error) {
+func (s *store) setAuthData(key string, authData metadata.AuthData) (err error) {
 	err = s.open(CacheBucketNameNameToAccessToken)
 	if err != nil {
 		return
 	}
 	defer s.Close()
 
-	return s.store.Set(key, authToken)
+	return s.store.Set(key, authData)
 }
 
-func (s *store) deleteAuthToken(key string) (err error) {
+func (s *store) deleteAuthData(key string) (err error) {
 	err = s.open(CacheBucketNameNameToAccessToken)
 	if err != nil {
 		return
