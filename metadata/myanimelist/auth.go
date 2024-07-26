@@ -3,8 +3,12 @@ package myanimelist
 import (
 	"context"
 	"errors"
+)
 
-	"github.com/luevano/libmangal/metadata"
+const (
+	OAuthBaseURL      = "https://myanimelist.net/v1/oauth2/"
+	OAuthTokenURL     = OAuthBaseURL + "token"
+	OAuthAuthorizeURL = OAuthBaseURL + "authorize"
 )
 
 // FIX: implement
@@ -17,8 +21,8 @@ func (p *MyAnimeList) Authenticated() bool {
 
 // FIX: implement
 //
-// Login authorizes an user with the given LoginOption.
-func (p *MyAnimeList) Login(ctx context.Context, loginOption metadata.LoginOption) error {
+// Login authorizes an user with the given access token.
+func (p *MyAnimeList) Login(ctx context.Context, token string) error {
 	return errors.ErrUnsupported
 }
 

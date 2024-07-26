@@ -9,50 +9,9 @@ import (
 	"github.com/luevano/libmangal/logger"
 	"github.com/philippgille/gokv"
 	"golang.org/x/mod/semver"
-	"golang.org/x/oauth2"
 )
 
-var (
-	_ Provider    = (*ProviderWithCache)(nil)
-	_ LoginOption = (*CachedUserLoginOption)(nil)
-)
-
-// LoginOption is a per Provider login option that handles
-// authorizing (internal to each provider) and getting the
-// authorization token (for external caching).
-type LoginOption interface {
-	// String the name of the login option, for logging purposes.
-	String() string
-
-	// Token returns the authorization token (useful for caching).
-	Token() *oauth2.Token
-}
-
-// TODO: only provide the token (this means get rid of the User caching)
-// so that the providers check if the token is valid and refresh it
-// as necessary
-//
-// CachedUserLoginOption is an implementation of LoginOption
-// that provides cached data for a previously logged in User.
-//
-// This LoginOption is only meant to be created by the
-// ProviderWithCache.LoginWithCachedUser method.
-type CachedUserLoginOption struct {
-	// User the cached User.
-	User User
-
-	token *oauth2.Token
-}
-
-// String the name of the login option, for logging purposes.
-func (o *CachedUserLoginOption) String() string {
-	return "Cached User Login"
-}
-
-// Token returns the authorization token (useful for caching).
-func (o *CachedUserLoginOption) Token() *oauth2.Token {
-	return o.token
-}
+var _ Provider = (*ProviderWithCache)(nil)
 
 // ProviderInfo is the passport of the metadata provider.
 type ProviderInfo struct {
@@ -144,8 +103,8 @@ type Provider interface {
 	// nil User means non-authenticated.
 	User() User
 
-	// Login authorizes an user with the given LoginOption.
-	Login(ctx context.Context, loginOption LoginOption) error
+	// Login authorizes an user with the given access token.
+	Login(ctx context.Context, token string) error
 
 	// Logout de-authorizes the currently authorized user.
 	Logout() error
@@ -397,94 +356,13 @@ func (p *ProviderWithCache) User() User {
 	return p.provider.User()
 }
 
-// Login authorizes an user with the given credentials.
-func (p *ProviderWithCache) Login(ctx context.Context, loginOption LoginOption) error {
-	p.logger.Log("authenticating Provider %q with login option %q", p.Info().Name, loginOption)
-	err := p.provider.Login(ctx, loginOption)
-	if err != nil {
-		return AuthError(err.Error())
-	}
-
-	// Get the just authorized data
-	user := p.User()
-	if user == nil {
-		return AuthError("got nil User when retrieving from Provider " + p.Info().Name)
-	}
-	token := loginOption.Token()
-	if token == nil {
-		return AuthError("got nil Token when retrieving from Provider " + p.Info().Name)
-	}
-
-	// Store the user and auth data to cache
-	if err := p.store.setUser(user.Name(), user); err != nil {
-		return AuthError(err.Error())
-	}
-	if err := p.store.setToken(user.Name(), *token); err != nil {
-		return AuthError(err.Error())
-	}
-
-	return nil
+// Login authorizes an user with the given access token.
+func (p *ProviderWithCache) Login(ctx context.Context, token string) error {
+	p.logger.Log("authenticating Provider %q", p.Info().Name)
+	return p.provider.Login(ctx, token)
 }
 
 // Logout de-authorizes the currently authorized user.
 func (p *ProviderWithCache) Logout() error {
 	return p.provider.Logout()
-}
-
-// TODO: handle re-caching the token if it is refreshed (due to it expiring)
-// TODO: change method signature from returning (bool, error) to returning error only
-//
-// LoginWithCachedUser will try to get the cached authentication data for the given
-// username. If the data exists, the provider will be authenticated with this user.
-func (p *ProviderWithCache) LoginWithCachedUser(ctx context.Context, username string) (bool, error) {
-	p.logger.Log("authenticating Provider %q via cached user %q", p.Info().Name, username)
-	// Get stored authData
-	token, found, err := p.store.getToken(username)
-	if err != nil {
-		return false, AuthError(err.Error())
-	}
-	if !found {
-		return false, nil
-	}
-
-	// Get stored user (if there is a token, there should be an user)
-	user, found, err := p.store.getUser(username)
-	if err != nil {
-		return false, AuthError(err.Error())
-	}
-	// If no user found, delete the found access token
-	if !found {
-		p.logger.Log("cached access token for user %q found but there is no cached user data, need to re-authenticate", username)
-		err := p.store.deleteToken(username)
-		if err != nil {
-			return false, AuthError(err.Error())
-		}
-		return false, nil
-	}
-
-	loginOption := &CachedUserLoginOption{
-		User:  user,
-		token: &token,
-	}
-
-	err = p.provider.Login(ctx, loginOption)
-	if err != nil {
-		return false, err
-	}
-
-	return true, nil
-}
-
-// DeleteCachedUser will delete the specified user cached auth data.
-func (p *ProviderWithCache) DeleteCachedUser(username string) error {
-	p.logger.Log("deleting cached authentication user data for %q for Provider %q", username, p.Info().Name)
-	err := p.store.deleteUser(username)
-	if err != nil {
-		return err
-	}
-	err = p.store.deleteToken(username)
-	if err != nil {
-		return err
-	}
-	return nil
 }

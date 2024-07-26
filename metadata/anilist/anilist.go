@@ -5,7 +5,6 @@ import (
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/luevano/libmangal/metadata"
-	"golang.org/x/oauth2"
 )
 
 const apiURL = "https://graphql.anilist.co"
@@ -24,7 +23,7 @@ var _ metadata.Provider = (*Anilist)(nil)
 type Anilist struct {
 	// authenticated user info
 	user  metadata.User
-	token *oauth2.Token
+	token string
 
 	options Options
 	logger  *logger.Logger

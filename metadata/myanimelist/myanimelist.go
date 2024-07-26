@@ -24,6 +24,10 @@ var _ metadata.Provider = (*MyAnimeList)(nil)
 
 // MyAnimeList is a metadata.Provider implementation for MyAnimeList.
 type MyAnimeList struct {
+	// authenticated user info
+	user  metadata.User
+	token string
+
 	options Options
 	logger  *logger.Logger
 }

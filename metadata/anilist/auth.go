@@ -7,46 +7,32 @@ import (
 	"github.com/luevano/libmangal/metadata"
 )
 
+const (
+	OAuthBaseURL      = "https://anilist.co/api/v2/oauth/"
+	OAuthPinURL       = OAuthBaseURL + "pin"
+	OAuthTokenURL     = OAuthBaseURL + "token"
+	OAuthAuthorizeURL = OAuthBaseURL + "authorize"
+)
+
 // Authenticated returns true if the Provider is
 // currently authenticated (user logged in).
 func (p *Anilist) Authenticated() bool {
-	if p.token == nil {
-		return false
-	}
-	return p.token.AccessToken != ""
+	return p.token != ""
 }
 
-// Login authorizes an user with the given LoginOption.
-func (p *Anilist) Login(ctx context.Context, loginOption metadata.LoginOption) error {
-	switch loginOption := loginOption.(type) {
-	case *metadata.CachedUserLoginOption:
-		// TODO: check if the token is valid by re-fetching the user?
-		// in which case, there is no need to cache the user
-		// this currently assumes that both the token and user are valid
-		p.token = loginOption.Token()
-		p.user = loginOption.User
-		return nil
-	case *OAuthLoginOption:
-		// Perform OAuth login (handles code and implicit grants)
-		err := loginOption.authorize(ctx)
-		if err != nil {
-			return err
-		}
-		p.token = loginOption.Token()
+// Login authorizes an user with the given access token.
+func (p *Anilist) Login(ctx context.Context, token string) error {
+	p.token = token
 
-		// Get authenticated user (this verifies the token)
-		user, err := p.getAuthenticatedUser(ctx)
-		if err != nil {
-			// remove token as it's possible it's not valid
-			p.token = nil
-			return Error(err.Error())
-		}
-		p.user = user
-
-		return nil
-	default:
-		return Error("unsuported login option " + loginOption.String())
+	user, err := p.getAuthenticatedUser(ctx)
+	if err != nil {
+		// remove token as it's possible it's not valid
+		p.token = ""
+		return Error(err.Error())
 	}
+	p.user = user
+
+	return nil
 }
 
 // Logout de-authorizes the currently authorized user.
@@ -57,7 +43,7 @@ func (p *Anilist) Logout() error {
 	// To logout, removing the user and token is enough
 	username := p.user.Name()
 	p.user = nil
-	p.token = nil
+	p.token = ""
 	p.logger.Log("user %q logged out of %q", username, p.Info().Name)
 	return nil
 }

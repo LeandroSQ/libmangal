@@ -4,7 +4,6 @@ import (
 	"strconv"
 
 	"github.com/philippgille/gokv"
-	"golang.org/x/oauth2"
 )
 
 const (
@@ -22,16 +21,6 @@ const (
 	//
 	// [7 => "{title: ..., image: ..., ...}"]
 	CacheBucketNameIDToManga = "id-to-manga"
-
-	// AccessData maps username to access data (authentication).
-	//
-	// An User with the same name must be stored, too.
-	CacheBucketNameNameToToken = "name-to-access-data"
-
-	// NameToUser maps username to an user (authenticated user).
-	//
-	// An AccessData with the same name must be stored, too.
-	CacheBucketNameNameToUser = "name-to-user"
 )
 
 type store struct {
@@ -113,66 +102,4 @@ func (s *store) setMeta(id int, manga Metadata) (err error) {
 	defer s.Close()
 
 	return s.store.Set(strconv.Itoa(id), &manga)
-}
-
-func (s *store) getToken(key string) (token oauth2.Token, found bool, err error) {
-	err = s.open(CacheBucketNameNameToToken)
-	if err != nil {
-		return
-	}
-	defer s.Close()
-
-	found, err = s.store.Get(key, &token)
-	return
-}
-
-func (s *store) setToken(key string, token oauth2.Token) (err error) {
-	err = s.open(CacheBucketNameNameToToken)
-	if err != nil {
-		return
-	}
-	defer s.Close()
-
-	return s.store.Set(key, token)
-}
-
-func (s *store) deleteToken(key string) (err error) {
-	err = s.open(CacheBucketNameNameToToken)
-	if err != nil {
-		return
-	}
-	defer s.Close()
-
-	return s.store.Delete(key)
-}
-
-func (s *store) getUser(name string) (user User, found bool, err error) {
-	err = s.open(CacheBucketNameNameToUser)
-	if err != nil {
-		return
-	}
-	defer s.Close()
-
-	found, err = s.store.Get(name, &user)
-	return
-}
-
-func (s *store) setUser(name string, user User) (err error) {
-	err = s.open(CacheBucketNameNameToUser)
-	if err != nil {
-		return
-	}
-	defer s.Close()
-
-	return s.store.Set(name, &user)
-}
-
-func (s *store) deleteUser(name string) (err error) {
-	err = s.open(CacheBucketNameNameToUser)
-	if err != nil {
-		return
-	}
-	defer s.Close()
-
-	return s.store.Delete(name)
 }
