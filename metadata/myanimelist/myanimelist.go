@@ -114,23 +114,9 @@ func (p *MyAnimeList) SetMangaProgress(ctx context.Context, id, chapterNumber in
 	return errors.ErrUnsupported
 }
 
-// SetAuthUser sets the provided User and AuthData.
-//
-// Meant to be used by ProviderWithCache to set cached values.
-func (p *MyAnimeList) SetAuthUser(user metadata.User, authData metadata.AuthData) error {
-	return errors.ErrUnsupported
-}
-
-// FIX: implement
-//
 // User returns the currently authenticated user.
-func (p *MyAnimeList) User() (metadata.User, error) {
-	return nil, errors.ErrUnsupported
-}
-
-// FIX: implement
 //
-// AuthData returns the currently authentication data.
-func (p *MyAnimeList) AuthData() (metadata.AuthData, error) {
-	return metadata.AuthData{}, errors.ErrUnsupported
+// nil User means non-authenticated.
+func (p *MyAnimeList) User() metadata.User {
+	return p.user
 }

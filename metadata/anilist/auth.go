@@ -1,40 +1,52 @@
 package anilist
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
-	"net/http"
-	"time"
 
 	"github.com/luevano/libmangal/metadata"
 )
 
-const (
-	// OAuthPinURL is used as the default redirect_uri
-	// when not present in the body.
-	OAuthPinURL   = "https://anilist.co/api/v2/oauth/pin"
-	OAuthTokenURL = "https://anilist.co/api/v2/oauth/token"
-)
-
-// Authenticated returns true if there is a currently authenticated
-// user (there exists an available access token and user data).
+// Authenticated returns true if the Provider is
+// currently authenticated (user logged in).
 func (p *Anilist) Authenticated() bool {
-	return p.authData.AccessToken != ""
+	if p.token == nil {
+		return false
+	}
+	return p.token.AccessToken != ""
 }
 
-// Login authorizes an user with the given credentials.
-func (p *Anilist) Login(ctx context.Context, credentials metadata.CodeGrant) error {
-	if err := credentials.Validate(); err != nil {
-		return Error(err.Error())
-	}
+// Login authorizes an user with the given LoginOption.
+func (p *Anilist) Login(ctx context.Context, loginOption metadata.LoginOption) error {
+	switch loginOption := loginOption.(type) {
+	case *metadata.CachedUserLoginOption:
+		// TODO: check if the token is valid by re-fetching the user?
+		// in which case, there is no need to cache the user
+		// this currently assumes that both the token and user are valid
+		p.token = loginOption.Token()
+		p.user = loginOption.User
+		return nil
+	case *OAuthLoginOption:
+		// Perform OAuth login (handles code and implicit grants)
+		err := loginOption.authorize(ctx)
+		if err != nil {
+			return err
+		}
+		p.token = loginOption.Token()
 
-	if credentials.ClientSecret != "" {
-		return p.AuthorizeWithCodeGrant(ctx, credentials)
-	}
+		// Get authenticated user (this verifies the token)
+		user, err := p.getAuthenticatedUser(ctx)
+		if err != nil {
+			// remove token as it's possible it's not valid
+			p.token = nil
+			return Error(err.Error())
+		}
+		p.user = user
 
-	return p.AuthorizeWithAccessToken(ctx, credentials.Code)
+		return nil
+	default:
+		return Error("unsuported login option " + loginOption.String())
+	}
 }
 
 // Logout de-authorizes the currently authorized user.
@@ -45,103 +57,9 @@ func (p *Anilist) Logout() error {
 	// To logout, removing the user and token is enough
 	username := p.user.Name()
 	p.user = nil
-	p.authData = metadata.AuthData{}
-	p.logger.Log("user %q logged out of anilist", username)
+	p.token = nil
+	p.logger.Log("user %q logged out of %q", username, p.Info().Name)
 	return nil
-}
-
-// AuthorizeWithCodeGrant will authorize the client (login)
-// via code grant, as specified in:
-// https://anilist.gitbook.io/anilist-apiv2-docs/overview/oauth/authorization-code-grant
-//
-// When a client is authorized all API requests will
-// have the access token attached (will be authorized).
-func (p *Anilist) AuthorizeWithCodeGrant(ctx context.Context, codeGrant metadata.CodeGrant) error {
-	p.logger.Log("authenticating Anilist via code grant")
-	// Access authData
-	authData, err := p.getTokenFromCode(ctx, codeGrant)
-	if err != nil {
-		return Error(err.Error())
-	}
-	p.authData = authData
-
-	// Get authenticated user (this verifies the token)
-	user, err := p.getAuthenticatedUser(ctx)
-	if err != nil {
-		// remove token as it's possible it's not valid
-		p.authData = metadata.AuthData{}
-		return Error(err.Error())
-	}
-	p.user = user
-
-	return nil
-}
-
-// AuthorizeWithAccessToken will authorize the client (login)
-// via a pre-obtained access token, as specified in:
-// https://anilist.gitbook.io/anilist-apiv2-docs/overview/oauth/implicit-grant
-//
-// When a client is authorized all API requests will
-// have the access token attached (will be authorized).
-func (p *Anilist) AuthorizeWithAccessToken(ctx context.Context, token string) error {
-	p.logger.Log("authenticating Anilist via acces token")
-	// build a basic auth data obj (lacking refresh token)
-	authData := metadata.AuthData{
-		AccessToken: token,
-		CreatedAt:   int(time.Now().Unix()),
-		ExpiresIn:   31536000, // the same default that anilist gives (1 yr)
-		TokenType:   "Bearer",
-	}
-	p.authData = authData
-
-	// Get authenticated user (this verifies the token)
-	user, err := p.getAuthenticatedUser(ctx)
-	if err != nil {
-		// remove token as it's possible it's not valid
-		p.authData = metadata.AuthData{}
-		return Error(err.Error())
-	}
-	p.user = user
-
-	return nil
-}
-
-// getTokenFromCode will convert the authorization code into an AccessToken.
-func (p *Anilist) getTokenFromCode(ctx context.Context, codeGrant metadata.CodeGrant) (metadata.AuthData, error) {
-	// prepare the request body
-	if err := codeGrant.Validate(); err != nil {
-		return metadata.AuthData{}, err
-	}
-	reqBody := codeGrant.ToReqBody()
-	if codeGrant.RedirectURI == "" {
-		reqBody["redirect_uri"] = OAuthPinURL
-	}
-
-	body, err := json.Marshal(reqBody)
-	if err != nil {
-		return metadata.AuthData{}, err
-	}
-
-	resp, err := p.genericRequest(ctx, http.MethodPost, OAuthTokenURL, bytes.NewBuffer(body), false)
-	if err != nil {
-		return metadata.AuthData{}, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return metadata.AuthData{}, errors.New("non-OK status response code: " + resp.Status)
-	}
-
-	var authData metadata.AuthData
-	err = json.NewDecoder(resp.Body).Decode(&authData)
-	if err != nil {
-		return metadata.AuthData{}, err
-	}
-	// Anilist doesn't provide created_at field
-	// (not that it matters as it expires in a year anyways)
-	authData.CreatedAt = int(time.Now().Unix())
-
-	return authData, nil
 }
 
 // getAuthenticatedUser will query for the user data to the Anilist API.

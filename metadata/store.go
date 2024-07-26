@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/philippgille/gokv"
+	"golang.org/x/oauth2"
 )
 
 const (
@@ -25,7 +26,7 @@ const (
 	// AccessData maps username to access data (authentication).
 	//
 	// An User with the same name must be stored, too.
-	CacheBucketNameNameToAccessData = "name-to-access-data"
+	CacheBucketNameNameToToken = "name-to-access-data"
 
 	// NameToUser maps username to an user (authenticated user).
 	//
@@ -114,29 +115,29 @@ func (s *store) setMeta(id int, manga Metadata) (err error) {
 	return s.store.Set(strconv.Itoa(id), &manga)
 }
 
-func (s *store) getAuthData(key string) (authData AuthData, found bool, err error) {
-	err = s.open(CacheBucketNameNameToAccessData)
+func (s *store) getToken(key string) (token oauth2.Token, found bool, err error) {
+	err = s.open(CacheBucketNameNameToToken)
 	if err != nil {
 		return
 	}
 	defer s.Close()
 
-	found, err = s.store.Get(key, &authData)
+	found, err = s.store.Get(key, &token)
 	return
 }
 
-func (s *store) setAuthData(key string, authData AuthData) (err error) {
-	err = s.open(CacheBucketNameNameToAccessData)
+func (s *store) setToken(key string, token oauth2.Token) (err error) {
+	err = s.open(CacheBucketNameNameToToken)
 	if err != nil {
 		return
 	}
 	defer s.Close()
 
-	return s.store.Set(key, authData)
+	return s.store.Set(key, token)
 }
 
-func (s *store) deleteAuthData(key string) (err error) {
-	err = s.open(CacheBucketNameNameToAccessData)
+func (s *store) deleteToken(key string) (err error) {
+	err = s.open(CacheBucketNameNameToToken)
 	if err != nil {
 		return
 	}

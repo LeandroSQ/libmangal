@@ -2,10 +2,10 @@ package anilist
 
 import (
 	"context"
-	"errors"
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/luevano/libmangal/metadata"
+	"golang.org/x/oauth2"
 )
 
 const apiURL = "https://graphql.anilist.co"
@@ -23,8 +23,8 @@ var _ metadata.Provider = (*Anilist)(nil)
 // Anilist is the Anilist client.
 type Anilist struct {
 	// authenticated user info
-	user     metadata.User
-	authData metadata.AuthData
+	user  metadata.User
+	token *oauth2.Token
 
 	options Options
 	logger  *logger.Logger
@@ -135,27 +135,9 @@ func (p *Anilist) SetMangaProgress(ctx context.Context, id, chapterNumber int) e
 	return nil
 }
 
-// SetAuthUser sets the provided User and AuthData.
-//
-// Meant to be used by ProviderWithCache to set cached values.
-func (p *Anilist) SetAuthUser(user metadata.User, authData metadata.AuthData) error {
-	p.user = user
-	p.authData = authData
-	return nil
-}
-
 // User returns the currently authenticated user.
-func (p *Anilist) User() (metadata.User, error) {
-	if !p.Authenticated() {
-		return nil, errors.New("Anilist is not authenticated")
-	}
-	return p.user, nil
-}
-
-// AuthData returns the currently authentication data.
-func (p *Anilist) AuthData() (metadata.AuthData, error) {
-	if !p.Authenticated() {
-		return metadata.AuthData{}, errors.New("Anilist is not authenticated")
-	}
-	return p.authData, nil
+//
+// nil User means non-authenticated.
+func (p *Anilist) User() metadata.User {
+	return p.user
 }

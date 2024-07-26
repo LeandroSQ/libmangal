@@ -92,7 +92,7 @@ func (p *Anilist) genericRequest(ctx context.Context, method, url string, body i
 	req.Header.Set("Accept", "application/json")
 
 	if authIfAvailable && p.Authenticated() {
-		req.Header.Set("Authorization", "Bearer "+p.authData.AccessToken)
+		req.Header.Set("Authorization", "Bearer "+p.token.AccessToken)
 	}
 
 	return p.options.HTTPClient.Do(req)
