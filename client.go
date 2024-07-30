@@ -123,13 +123,13 @@ func (c *Client) Info() ProviderInfo {
 
 // SearchMetadata will search for metadata on the available metadata providers.
 //
-// Tries to search anilist manga in the following order:
+// Tries to search manga metadata in the following order:
 //
-// 1. If the manga contains non-nil metadata, by its Anilist ID if available.
+// 1. If the manga contains non-nil metadata, by its metadata ID if available.
 //
-// 2. If the manga Title field is binded to an Anilist ID.
+// 2. If the manga Title field is binded to a metadata ID.
 //
-// 3. Otherwise find closest anilist manga (FindClosestManga) by using the manga Title field.
+// 3. Find closest manga metadata (FindClosest) by using the manga Title field.
 func (c *Client) SearchMetadata(
 	ctx context.Context,
 	manga mangadata.Manga,
@@ -164,10 +164,14 @@ func (c *Client) SearchMetadata(
 //
 // 1. If the manga contains non-nil metadata, by its metadata ID if available.
 //
-// 2 If the manga title is binded to a metadata ID.
+// 2. If the manga title is binded to a metadata ID.
 //
-// 3 Find closest manga metadata (FindClosest) by using the manga Title field.
-func (c *Client) SearchByManga(ctx context.Context, provider *metadata.ProviderWithCache, manga mangadata.Manga) (metadata.Metadata, bool, error) {
+// 3. Find closest manga metadata (FindClosest) by using the manga Title field.
+func (c *Client) SearchByManga(
+	ctx context.Context,
+	provider *metadata.ProviderWithCache,
+	manga mangadata.Manga,
+) (metadata.Metadata, bool, error) {
 	c.logger.Log("searching metadata by (libmangal) manga on %q", c.Info().Name)
 
 	// Try to search by metadata ID if it is available
