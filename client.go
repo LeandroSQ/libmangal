@@ -55,6 +55,25 @@ func NewClient(
 	}, nil
 }
 
+func (c *Client) Close() error {
+	return c.provider.Close()
+}
+
+func (c *Client) String() string {
+	return c.provider.Info().Name
+}
+
+// Info returns info about provider.
+func (c *Client) Info() ProviderInfo {
+	return c.provider.Info()
+}
+
+// Logger returns the client's Logger.
+func (c *Client) Logger() *logger.Logger {
+	return c.logger
+}
+
+// FS returns the client's FileSystem.
 func (c *Client) FS() afero.Fs {
 	return c.options.FS
 }
@@ -82,43 +101,6 @@ func (c *Client) GetMetadataProvider(id metadata.IDCode) (*metadata.ProviderWith
 		return nil, errors.New("no metadata Provider found with ID " + string(id))
 	}
 	return p, nil
-}
-
-func (c *Client) Logger() *logger.Logger {
-	return c.logger
-}
-
-func (c *Client) Close() error {
-	return c.provider.Close()
-}
-
-// SearchMangas searches for mangas with the given query.
-func (c *Client) SearchMangas(ctx context.Context, query string) ([]mangadata.Manga, error) {
-	return c.provider.SearchMangas(ctx, query)
-}
-
-// MangaVolumes gets chapters of the given manga.
-func (c *Client) MangaVolumes(ctx context.Context, manga mangadata.Manga) ([]mangadata.Volume, error) {
-	return c.provider.MangaVolumes(ctx, manga)
-}
-
-// VolumeChapters gets chapters of the given manga.
-func (c *Client) VolumeChapters(ctx context.Context, volume mangadata.Volume) ([]mangadata.Chapter, error) {
-	return c.provider.VolumeChapters(ctx, volume)
-}
-
-// ChapterPages gets pages of the given chapter.
-func (c *Client) ChapterPages(ctx context.Context, chapter mangadata.Chapter) ([]mangadata.Page, error) {
-	return c.provider.ChapterPages(ctx, chapter)
-}
-
-func (c *Client) String() string {
-	return c.provider.Info().Name
-}
-
-// Info returns info about provider.
-func (c *Client) Info() ProviderInfo {
-	return c.provider.Info()
 }
 
 // SearchMetadata will search for metadata on the available metadata providers.
@@ -388,6 +370,26 @@ func (c *Client) ReadChapter(
 		return errors.Join(setProgressErrors...)
 	}
 	return nil
+}
+
+// SearchMangas searches for mangas with the given query.
+func (c *Client) SearchMangas(ctx context.Context, query string) ([]mangadata.Manga, error) {
+	return c.provider.SearchMangas(ctx, query)
+}
+
+// MangaVolumes gets chapters of the given manga.
+func (c *Client) MangaVolumes(ctx context.Context, manga mangadata.Manga) ([]mangadata.Volume, error) {
+	return c.provider.MangaVolumes(ctx, manga)
+}
+
+// VolumeChapters gets chapters of the given manga.
+func (c *Client) VolumeChapters(ctx context.Context, volume mangadata.Volume) ([]mangadata.Chapter, error) {
+	return c.provider.VolumeChapters(ctx, volume)
+}
+
+// ChapterPages gets pages of the given chapter.
+func (c *Client) ChapterPages(ctx context.Context, chapter mangadata.Chapter) ([]mangadata.Page, error) {
+	return c.provider.ChapterPages(ctx, chapter)
 }
 
 // ProviderName determines the provider directory name.

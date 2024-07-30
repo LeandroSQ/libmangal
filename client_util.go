@@ -25,33 +25,11 @@ const (
 	mangaImageBanner mangaImage = "banner"
 )
 
-type pathExistsFunc func(string) (bool, error)
-
-// removeChapter will remove chapter at given path.
-//
-// Doesn't matter if it's a directory or a file.
-//
-// Currently unused.
-func (c *Client) removeChapter(chapterPath string) error {
-	c.logger.Log("removing %s", chapterPath)
-
-	isDir, err := afero.IsDir(c.options.FS, chapterPath)
-	if err != nil {
-		return err
-	}
-
-	if isDir {
-		return c.options.FS.RemoveAll(chapterPath)
-	}
-
-	return c.options.FS.Remove(chapterPath)
-}
-
 func (c *Client) downloadChapterWithMetadata(
 	ctx context.Context,
 	chapter mangadata.Chapter,
 	options DownloadOptions,
-	existsFunc pathExistsFunc,
+	existsFunc func(string) (bool, error),
 ) (*metadata.DownloadedChapter, error) {
 	directory := options.Directory
 
@@ -605,4 +583,24 @@ func (c *Client) writeSeriesJSON(
 
 	_, err = out.Write(marshalled)
 	return err
+}
+
+// removeChapter will remove chapter at given path.
+//
+// Doesn't matter if it's a directory or a file.
+//
+// Currently unused.
+func (c *Client) removeChapter(chapterPath string) error {
+	c.logger.Log("removing %s", chapterPath)
+
+	isDir, err := afero.IsDir(c.options.FS, chapterPath)
+	if err != nil {
+		return err
+	}
+
+	if isDir {
+		return c.options.FS.RemoveAll(chapterPath)
+	}
+
+	return c.options.FS.Remove(chapterPath)
 }
