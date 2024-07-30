@@ -10,7 +10,8 @@ import (
 const apiURL = "https://graphql.anilist.co"
 
 var info = metadata.ProviderInfo{
-	ID:      metadata.IDCodeAnilist,
+	ID:      "anilist",
+	Code:    metadata.IDCodeAnilist,
 	Source:  metadata.IDSourceAnilist,
 	Name:    "Anilist",
 	Version: "0.1.0",

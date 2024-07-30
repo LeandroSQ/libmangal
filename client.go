@@ -14,7 +14,7 @@ import (
 // It's the core of libmangal.
 type Client struct {
 	provider Provider
-	meta     map[metadata.IDCode]*metadata.ProviderWithCache
+	meta     map[metadata.IDSource]*metadata.ProviderWithCache
 	options  ClientOptions
 	logger   *logger.Logger
 }
@@ -44,7 +44,7 @@ func NewClient(
 
 	return &Client{
 		provider: provider,
-		meta:     map[metadata.IDCode]*metadata.ProviderWithCache{},
+		meta:     map[metadata.IDSource]*metadata.ProviderWithCache{},
 		options:  options,
 		logger:   logger,
 	}, nil

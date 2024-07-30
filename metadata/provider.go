@@ -18,7 +18,12 @@ type ProviderInfo struct {
 	// ID is the unique identifier of the provider.
 	//
 	// For a ProviderWithCache this is used as the cache DB name.
-	ID IDCode `json:"id"`
+	ID string `json:"id"`
+
+	// Code is the unique code of the provider.
+	//
+	// E.g. IDCodeAnilist, IDCodeMyAnimeList, etc.
+	Code IDCode `json:"code"`
 
 	// Source is the source of the metadata.
 	//
@@ -50,6 +55,10 @@ type ProviderInfo struct {
 func (p ProviderInfo) Validate() error {
 	if p.ID == "" {
 		return fmt.Errorf("ID must be non-empty")
+	}
+
+	if p.Code == "" {
+		return fmt.Errorf("Code must be non-empty")
 	}
 
 	if p.Name == "" {

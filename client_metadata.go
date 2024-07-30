@@ -3,6 +3,7 @@ package libmangal
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 
 	"github.com/luevano/libmangal/mangadata"
@@ -10,15 +11,15 @@ import (
 	"github.com/skratchdot/open-golang/open"
 )
 
-// AddMetadataProvider will add or update the metadata Provider.
-func (c *Client) AddMetadataProvider(provider *metadata.ProviderWithCache) error {
+// SetMetadataProvider will add or update the given metadata Provider.
+func (c *Client) SetMetadataProvider(provider *metadata.ProviderWithCache) error {
 	if provider == nil {
 		return errors.New("Provider must be non-nil")
 	}
 
-	id := provider.Info().ID
-	if id == "" {
-		return errors.New("metadata Provider ID must be non-empty")
+	id := provider.Info().Source
+	if id < 1 {
+		return errors.New(fmt.Sprintf("invalid metadata Provider IDSource %d (ID %q)", id, provider.Info().ID))
 	}
 
 	provider.SetLogger(c.logger)
@@ -27,10 +28,10 @@ func (c *Client) AddMetadataProvider(provider *metadata.ProviderWithCache) error
 }
 
 // GetMetadataProvider returns the requested metadata Provider for the given id.
-func (c *Client) GetMetadataProvider(id metadata.IDCode) (*metadata.ProviderWithCache, error) {
+func (c *Client) GetMetadataProvider(id metadata.IDSource) (*metadata.ProviderWithCache, error) {
 	p, ok := c.meta[id]
 	if !ok {
-		return nil, errors.New("no metadata Provider found with ID " + string(id))
+		return nil, errors.New(fmt.Sprintf("no metadata Provider found with IDSource %d", id))
 	}
 	return p, nil
 }
@@ -156,9 +157,9 @@ func (c *Client) ReadChapter(
 
 		// TODO: add other providers
 		switch {
-		case id == metadata.IDCodeAnilist && options.SaveAnilist:
+		case id == metadata.IDSourceAnilist && options.SaveAnilist:
 			err = p.SetMangaProgress(ctx, metaID, progress)
-		case id == metadata.IDCodeMyAnimeList && options.SaveMyAnimeList:
+		case id == metadata.IDSourceMyAnimeList && options.SaveMyAnimeList:
 		}
 		if err != nil {
 			goto addError
