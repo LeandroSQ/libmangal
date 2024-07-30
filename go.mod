@@ -16,7 +16,7 @@ require (
 	github.com/hhrutter/lzw v1.0.0 // indirect
 	github.com/hhrutter/tiff v1.0.1 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
-	github.com/mattn/go-runewidth v0.0.15 // indirect
+	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/philippgille/gokv/encoding v0.7.0 // indirect
 	github.com/philippgille/gokv/util v0.7.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
