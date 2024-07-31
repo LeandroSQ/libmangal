@@ -70,8 +70,6 @@ func (p *Anilist) Logger() *logger.Logger {
 //
 // Implementation should only handle the request and and marshaling.
 func (p *Anilist) SearchByID(ctx context.Context, id int) (metadata.Metadata, bool, error) {
-	p.logger.Log("searching manga with id %d on Anilist", id)
-
 	body := apiRequestBody{
 		Query: querySearchByID,
 		Variables: map[string]any{

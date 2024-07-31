@@ -40,11 +40,8 @@ func (p *Anilist) Logout() error {
 	if !p.Authenticated() {
 		return errors.New("no authenticated user to logout")
 	}
-	// To logout, removing the user and token is enough
-	username := p.user.Name()
 	p.user = nil
 	p.token = ""
-	p.logger.Log("user %q logged out of %q", username, p.Info().Name)
 	return nil
 }
 

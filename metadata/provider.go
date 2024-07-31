@@ -337,11 +337,11 @@ func (p *ProviderWithCache) findClosest(ctx context.Context, title string, tries
 // BindTitleWithID sets a given id to a title, so on each title search
 // the same manga metadata with that id is obtained.
 func (p *ProviderWithCache) BindTitleWithID(title string, id int) error {
+	p.logger.Log("binding manga title %q to manga metadata id %d on %q", title, id, p.Info().Name)
 	err := p.store.setTitleID(title, id)
 	if err != nil {
 		return Error(err.Error())
 	}
-
 	return nil
 }
 
@@ -349,6 +349,7 @@ func (p *ProviderWithCache) BindTitleWithID(title string, id int) error {
 //
 // For ProviderWithCache this is only a wrapper around the actual provider's method.
 func (p *ProviderWithCache) SetMangaProgress(ctx context.Context, id, chapterNumber int) error {
+	p.logger.Log("setting manga chapter progress (%d) for manga id %d on %q", chapterNumber, id, p.Info().Name)
 	return p.provider.SetMangaProgress(ctx, id, chapterNumber)
 }
 
@@ -367,11 +368,12 @@ func (p *ProviderWithCache) User() User {
 
 // Login authorizes an user with the given access token.
 func (p *ProviderWithCache) Login(ctx context.Context, token string) error {
-	p.logger.Log("authenticating Provider %q", p.Info().Name)
+	p.logger.Log("logging in to %q", p.Info().Name)
 	return p.provider.Login(ctx, token)
 }
 
 // Logout de-authorizes the currently authorized user.
 func (p *ProviderWithCache) Logout() error {
+	p.logger.Log("logging out of %q", p.Info().Name)
 	return p.provider.Logout()
 }
