@@ -155,11 +155,10 @@ func (c *Client) ReadChapter(
 		}
 		metaID = meta.ID().Value()
 
-		// TODO: add other providers
-		switch {
-		case id == metadata.IDSourceAnilist && options.SaveAnilist:
+		// TODO: better handle this mess
+		if (id == metadata.IDSourceAnilist && options.SaveAnilist) ||
+			(id == metadata.IDSourceMyAnimeList && options.SaveMyAnimeList) {
 			err = p.SetMangaProgress(ctx, metaID, progress)
-		case id == metadata.IDSourceMyAnimeList && options.SaveMyAnimeList:
 		}
 		if err != nil {
 			goto addError

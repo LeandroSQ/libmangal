@@ -11,6 +11,7 @@ const profileURL = "https://myanimelist.net/profile/"
 var _ metadata.User = (*User)(nil)
 
 // TODO: add AnimeStatistics
+// TODO: change field types from string to date/date-time
 //
 // User is the user model for MyAnimeList.
 //

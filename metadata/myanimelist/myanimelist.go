@@ -3,9 +3,11 @@ package myanimelist
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/luevano/libmangal/logger"
 	"github.com/luevano/libmangal/metadata"
@@ -113,11 +115,32 @@ func (p *MyAnimeList) Search(ctx context.Context, query string) ([]metadata.Meta
 	return mangas, nil
 }
 
-// FIX: implement
-//
 // SetMangaProgress sets the reading progress for a given manga metadata id.
 func (p *MyAnimeList) SetMangaProgress(ctx context.Context, id, chapterNumber int) error {
-	return errors.ErrUnsupported
+	if id == 0 {
+		return Error("MyAnimeList ID not valid (0)")
+	}
+	if !p.Authenticated() {
+		return Error("not authorized")
+	}
+
+	path := fmt.Sprintf("manga/%d/my_list_status", id)
+
+	headers := http.Header{}
+	headers.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	params := url.Values{}
+	params.Set("num_chapters_read", strconv.Itoa(chapterNumber))
+	body := strings.NewReader(params.Encode())
+
+	// currently the read status is not used/needed
+	var readStatus *ReadStatus
+	err := p.request(ctx, http.MethodPatch, path, url.Values{}, headers, body, &readStatus)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // User returns the currently authenticated user.
