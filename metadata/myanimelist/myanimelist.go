@@ -78,6 +78,7 @@ func (p *MyAnimeList) Logger() *logger.Logger {
 func (p *MyAnimeList) SearchByID(ctx context.Context, id int) (metadata.Metadata, bool, error) {
 	params := url.Values{}
 	params.Set("manga_id", strconv.Itoa(id))
+	params.Set("fields", mangaFields)
 
 	var manga *Manga
 	err := p.request(ctx, "manga/"+strconv.Itoa(id), params, &manga)
@@ -100,6 +101,7 @@ func (p *MyAnimeList) Search(ctx context.Context, query string) ([]metadata.Meta
 	params.Set("q", query)
 	params.Set("offset", "0")
 	params.Set("limit", "30")
+	params.Set("fields", mangaFields)
 
 	var res mangasResponse
 	err := p.request(ctx, "manga", params, &res)

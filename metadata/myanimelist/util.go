@@ -33,6 +33,19 @@ var mangaFields = strings.Join([]string{
 	"authors{first_name,last_name}",
 }, ",")
 
+var userFields = strings.Join([]string{
+	"id",
+	"name",
+	"picture",
+	"gender",
+	"birthday",
+	"location",
+	"joined_at",
+	"anime_statistics",
+	"time_zone",
+	"is_supporter",
+}, ",")
+
 type mangasResponse struct {
 	Data   mangaNodes `json:"data"`
 	Paging struct {
@@ -55,19 +68,19 @@ type mangaNode struct {
 	Node *Manga `json:"node"`
 }
 
-func (a *MyAnimeList) request(
+func (p *MyAnimeList) request(
 	ctx context.Context,
 	path string,
 	params url.Values,
 	res any,
 ) error {
-	if a.options.NSFW {
+	// TODO: use these only for manga reqs
+	if p.options.NSFW {
 		params.Set("nsfw", "true")
 	} else {
 		params.Set("nsfw", "false")
 	}
 
-	params.Set("fields", mangaFields)
 	u, _ := url.Parse(apiURL)
 	u = u.JoinPath(path)
 	u.RawQuery = params.Encode()
@@ -78,10 +91,14 @@ func (a *MyAnimeList) request(
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	// TODO: allow user login
-	req.Header.Set("X-MAL-CLIENT-ID", a.options.ClientID)
 
-	resp, err := a.options.HTTPClient.Do(req)
+	if p.Authenticated() {
+		req.Header.Set("Authorization", "Bearer "+p.token)
+	} else {
+		req.Header.Set("X-MAL-CLIENT-ID", p.options.ClientID)
+	}
+
+	resp, err := p.options.HTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
