@@ -74,13 +74,6 @@ func (p *MyAnimeList) request(
 	params url.Values,
 	res any,
 ) error {
-	// TODO: use these only for manga reqs
-	if p.options.NSFW {
-		params.Set("nsfw", "true")
-	} else {
-		params.Set("nsfw", "false")
-	}
-
 	u, _ := url.Parse(apiURL)
 	u = u.JoinPath(path)
 	u.RawQuery = params.Encode()
@@ -108,4 +101,17 @@ func (p *MyAnimeList) request(
 		return fmt.Errorf(resp.Status)
 	}
 	return json.NewDecoder(resp.Body).Decode(&res)
+}
+
+// commonMangaReqParams is a convenience method to get the common manga req params.
+func (p *MyAnimeList) commonMangaReqParams() url.Values {
+	params := url.Values{}
+	params.Set("fields", mangaFields)
+	if p.options.NSFW {
+		params.Set("nsfw", "true")
+	} else {
+		params.Set("nsfw", "false")
+	}
+
+	return params
 }
