@@ -3,6 +3,7 @@ package myanimelist
 import (
 	"context"
 	"errors"
+	"net/http"
 	"net/url"
 	"strconv"
 
@@ -80,7 +81,7 @@ func (p *MyAnimeList) SearchByID(ctx context.Context, id int) (metadata.Metadata
 	params.Set("manga_id", strconv.Itoa(id))
 
 	var manga *Manga
-	err := p.request(ctx, "manga/"+strconv.Itoa(id), params, &manga)
+	err := p.request(ctx, http.MethodGet, "manga/"+strconv.Itoa(id), params, p.commonMangaReqHeaders(), nil, &manga)
 	if err != nil {
 		return nil, false, err
 	}
@@ -102,7 +103,7 @@ func (p *MyAnimeList) Search(ctx context.Context, query string) ([]metadata.Meta
 	params.Set("limit", "30")
 
 	var res mangasResponse
-	err := p.request(ctx, "manga", params, &res)
+	err := p.request(ctx, http.MethodGet, "manga", params, p.commonMangaReqHeaders(), nil, &res)
 	if err != nil {
 		return nil, err
 	}

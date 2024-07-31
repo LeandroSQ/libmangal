@@ -3,6 +3,7 @@ package myanimelist
 import (
 	"context"
 	"errors"
+	"net/http"
 	"net/url"
 
 	"github.com/luevano/libmangal/metadata"
@@ -54,7 +55,7 @@ func (p *MyAnimeList) getAuthenticatedUser(ctx context.Context) (metadata.User, 
 	params.Set("fields", userFields)
 
 	var user *User
-	err := p.request(ctx, "users/@me", params, &user)
+	err := p.request(ctx, http.MethodGet, "users/@me", params, p.commonMangaReqHeaders(), nil, &user)
 	if err != nil {
 		return nil, errors.New("getting authenticated user data: " + err.Error())
 	}

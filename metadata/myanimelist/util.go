@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -70,26 +71,28 @@ type mangaNode struct {
 
 func (p *MyAnimeList) request(
 	ctx context.Context,
+	method string,
 	path string,
 	params url.Values,
+	headers http.Header,
+	body io.Reader,
 	res any,
 ) error {
 	u, _ := url.Parse(apiURL)
 	u = u.JoinPath(path)
 	u.RawQuery = params.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, method, u.String(), body)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
 
 	if p.Authenticated() {
-		req.Header.Set("Authorization", "Bearer "+p.token)
+		headers.Set("Authorization", "Bearer "+p.token)
 	} else {
-		req.Header.Set("X-MAL-CLIENT-ID", p.options.ClientID)
+		headers.Set("X-MAL-CLIENT-ID", p.options.ClientID)
 	}
+	req.Header = headers
 
 	resp, err := p.options.HTTPClient.Do(req)
 	if err != nil {
@@ -112,6 +115,13 @@ func (p *MyAnimeList) commonMangaReqParams() url.Values {
 	} else {
 		params.Set("nsfw", "false")
 	}
-
 	return params
+}
+
+// commonMangaReqHeaders is a convenience method to get the common manga req headers.
+func (p *MyAnimeList) commonMangaReqHeaders() http.Header {
+	headers := http.Header{}
+	headers.Set("Content-Type", "application/json")
+	headers.Set("Accept", "application/json")
+	return headers
 }
