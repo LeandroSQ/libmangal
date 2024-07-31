@@ -13,6 +13,9 @@ import (
 	"github.com/luevano/libmangal/metadata"
 )
 
+// Reference docs:
+// https://myanimelist.net/apiconfig/references/api/v2
+
 const apiURL = "https://api.myanimelist.net/v2"
 
 var info = metadata.ProviderInfo{

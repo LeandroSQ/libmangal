@@ -7,6 +7,9 @@ import (
 	"github.com/luevano/libmangal/metadata"
 )
 
+// Reference docs:
+// https://anilist.github.io/ApiV2-GraphQL-Docs/
+
 const apiURL = "https://graphql.anilist.co"
 
 var info = metadata.ProviderInfo{
